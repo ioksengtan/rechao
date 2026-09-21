@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>美術動作檢查｜熱炒開店啦</title>
+<style>
+body{margin:0;padding:16px;background:#f5f2e9;color:#34443e;font:14px "Microsoft JhengHei",sans-serif}header{display:flex;gap:12px;align-items:center;justify-content:center;margin-bottom:12px}button{border:1px solid #c1cbb4;border-radius:6px;padding:9px 16px;background:#e5eadc;color:#34443e;font:inherit;cursor:pointer}button[aria-pressed=true]{background:#315b49;color:#fff0ce}canvas{display:block;width:min(100%,1040px);height:auto;margin:auto}p{text-align:center;font-size:12px;color:#7d876f}
+</style>
+<header><strong>開發用美術檢查</strong><button data-mode="chop" aria-pressed="true">切菜</button><button data-mode="toss" aria-pressed="false">翻鍋</button><button data-mode="serve" aria-pressed="false">上菜</button><button data-mode="burn" aria-pressed="false">燒焦</button></header>
+<canvas id="stage" width="1160" height="720" aria-label="動作與場景美術預覽"></canvas>
+<p>固定情境循環展示，不計分、不寫入遊戲紀錄。正式遊戲：<a href="../index.html">回到熱炒店</a></p>
+<script src="../game-core.js"></script><script src="../movement.js"></script><script src="../art.js"></script>
+<script>
+const game=new HotStirFry.Kitchen(()=>.5,'friday');
+const art=HotStirFryArt.createRenderer(document.getElementById('stage').getContext('2d'),HotStirFry);
+let mode='chop',player,target,keys,elapsed=0,last=performance.now();
+function setup(next){
+  mode=next;game.reset('friday');game.startService();art.reset();elapsed=0;keys=new Set();
+  player=HotStirFryMovement.createPlayer();
+  Object.assign(game.wok,{state:'cooking',ingredients:['choppedScallion','egg','rice'],recipe:'rice',elapsed:4});
+  Object.assign(game.woks.wok2,{state:'ready',ingredients:['choppedBeef','choppedScallion'],recipe:'beef',readyTime:3});
+  if(mode==='chop'){
+    target=game.stations.find(s=>s.id==='board');target.item={id:'chicken'};target.progress=1;
+    player.x=270;player.y=330;keys.add('f');
+  }else if(mode==='serve'){
+    target=game.stations.find(s=>s.id==='serve');player.x=810;player.y=390;player.dx=1;player.dy=0;
+  }else{
+    target=game.stations.find(s=>s.id==='wok');player.x=630;player.y=330;
+    if(mode==='burn')game.wok.state='burned';
+  }
+  document.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===mode)));
+}
+document.querySelectorAll('button').forEach(b=>b.onclick=()=>setup(b.dataset.mode));
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;elapsed+=dt;art.update(dt,true);
+  if(mode==='toss'&&elapsed>1.15){elapsed=0;game.wok.flipped=false;const before=art.snapshot(game);game.action('wok');art.action(target,game,before);}
+  if(mode==='serve'&&elapsed>2){elapsed=0;game.orders=[];game.addOrder('greens');game.held={id:'greensDish'};const before=art.snapshot(game);game.serve();art.action(target,game,before);}
+  art.draw(game,player,target,keys,true,false);requestAnimationFrame(frame);
+}
+setup(mode);requestAnimationFrame(frame);
+</script>
+</html>

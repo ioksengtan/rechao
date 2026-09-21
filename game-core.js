@@ -1,0 +1,191 @@
+(function (root) {
+  'use strict';
+  const ITEMS = {
+    greens: { name: '青菜', kind: 'greens', processed: 'choppedGreens' }, choppedGreens: { name: '切好的青菜', kind: 'greens', chopped: true },
+    scallion: { name: '蔥', kind: 'scallion', processed: 'choppedScallion' }, choppedScallion: { name: '切好的蔥', kind: 'scallion', chopped: true },
+    beef: { name: '牛肉', kind: 'beef', processed: 'choppedBeef' }, choppedBeef: { name: '牛肉片', kind: 'beef', chopped: true },
+    chicken: { name: '雞肉', kind: 'chicken', processed: 'choppedChicken' }, choppedChicken: { name: '雞肉塊', kind: 'chicken', chopped: true },
+    basil: { name: '九層塔', kind: 'basil' }, sauce: { name: '三杯醬', kind: 'sauce' },
+    egg: { name: '雞蛋', kind: 'egg' }, rice: { name: '白飯', kind: 'rice' }, plate: { name: '乾淨餐盤', kind: 'plate' },
+    greensDish: { name: '清炒青菜', kind: 'dish', recipe: 'greens' }, riceDish: { name: '黃金蛋炒飯', kind: 'dish', recipe: 'rice' },
+    beefDish: { name: '蔥爆牛肉', kind: 'dish', recipe: 'beef' }, chickenDish: { name: '三杯雞', kind: 'dish', recipe: 'chicken' }
+  };
+  const RECIPES = {
+    greens: { name: '清炒青菜', ingredients: ['choppedGreens'], cookTime: 5, price: 80, patience: 75, dish: 'greensDish' },
+    rice: { name: '黃金蛋炒飯', ingredients: ['choppedScallion', 'egg', 'rice'], cookTime: 7, price: 120, patience: 90, dish: 'riceDish' },
+    beef: { name: '蔥爆牛肉', ingredients: ['choppedBeef', 'choppedScallion'], cookTime: 8, price: 180, patience: 105, dish: 'beefDish' },
+    chicken: { name: '三杯雞', ingredients: ['choppedChicken', 'basil', 'sauce'], cookTime: 10, price: 220, patience: 120, dish: 'chickenDish' }
+  };
+  const LEVELS = [
+    { id: 'opening', name: '第一晚開張', subtitle: '先學一手好菜', description: '兩道經典、一口炒鍋。從切料到上菜，找到自己的節奏。', menu: ['greens', 'rice'], woks: 1, prepTime: 20, serviceTime: 180, closingTime: 45, maxOrders: 2, orderInterval: 18, plateCount: 4, stars: [160, 450, 900], firstOrders: ['greens', 'rice'] },
+    { id: 'rush', name: '晚餐尖峰', subtitle: '雙鍋開火的考驗', description: '加入蔥爆牛肉與第二口炒鍋。備好料，再輪流照顧兩鍋。', menu: ['greens', 'rice', 'beef'], woks: 2, prepTime: 25, serviceTime: 180, closingTime: 45, maxOrders: 3, orderInterval: 16, plateCount: 5, stars: [320, 800, 1350], firstOrders: ['beef', 'greens'] },
+    { id: 'friday', name: '滿座週五夜', subtitle: '今晚，四道拿手菜', description: '三杯雞壓軸登場！三張訂單同時催菜，安排好每一鍋的火候。', menu: ['greens', 'rice', 'beef', 'chicken'], woks: 2, prepTime: 30, serviceTime: 180, closingTime: 45, maxOrders: 3, orderInterval: 14, plateCount: 6, stars: [450, 1050, 1700], firstOrders: ['chicken', 'beef', 'greens'] }
+  ];
+  const STATIONS = [
+    { id: 'greens', type: 'supply', supply: 'greens', x: 1, y: 1, name: '青菜箱' },
+    { id: 'egg', type: 'supply', supply: 'egg', x: 3, y: 1, name: '雞蛋箱' },
+    { id: 'scallion', type: 'supply', supply: 'scallion', x: 5, y: 1, name: '青蔥箱' },
+    { id: 'rice', type: 'supply', supply: 'rice', x: 7, y: 1, name: '飯鍋' },
+    { id: 'beef', type: 'supply', supply: 'beef', x: 9, y: 1, name: '牛肉箱' },
+    { id: 'chicken', type: 'supply', supply: 'chicken', x: 11, y: 1, name: '雞肉箱' },
+    { id: 'basil', type: 'supply', supply: 'basil', x: 13, y: 1, name: '九層塔' },
+    { id: 'sauce', type: 'supply', supply: 'sauce', x: 14, y: 3, name: '三杯醬' },
+    { id: 'board', type: 'board', x: 4, y: 4, name: '切料砧板' },
+    { id: 'board2', type: 'board', x: 4, y: 6, name: '第二砧板', advanced: true },
+    { id: 'counter', type: 'counter', x: 7, y: 4, name: '備料檯' },
+    { id: 'counter2', type: 'counter', x: 1, y: 4, name: '備料檯 2', advanced: true },
+    { id: 'wok', type: 'wok', x: 10, y: 4, name: '一號炒爐' },
+    { id: 'wok2', type: 'wok', x: 12, y: 4, name: '二號炒爐', advanced: true },
+    { id: 'plates', type: 'plates', x: 10, y: 7, name: '餐盤架' },
+    { id: 'serve', type: 'serve', x: 14, y: 6, name: '出餐口' },
+    { id: 'trash', type: 'trash', x: 7, y: 8, name: '廚餘桶' }
+  ];
+  const exact = (a, b) => a.length === b.length && [...a].sort().join(',') === [...b].sort().join(',');
+  function recipeFor(ingredients, menu = Object.keys(RECIPES)) { return menu.find(key => exact(RECIPES[key].ingredients, ingredients)); }
+  function canAdd(ingredients, id, menu = Object.keys(RECIPES)) {
+    const proposed = [...ingredients, id];
+    return menu.map(key => RECIPES[key]).some(r => proposed.every(i => proposed.filter(x => x === i).length <= r.ingredients.filter(x => x === i).length));
+  }
+  const emptyWok = () => ({ state: 'empty', ingredients: [], elapsed: 0, recipe: null, flipped: false, readyTime: 0, clearProgress: 0 });
+  function getStations(level) {
+    const ingredients = new Set(level.menu.flatMap(key => RECIPES[key].ingredients));
+    return STATIONS.filter(s => (!s.advanced || level.woks > 1) && (s.type !== 'supply' || ingredients.has(s.supply) || ingredients.has(ITEMS[s.supply].processed))).map(s => ({ ...s, item: null, progress: 0 }));
+  }
+  function starCount(revenue, level) { return level.stars.filter(threshold => revenue >= threshold).length; }
+  class Kitchen {
+    constructor(random = Math.random, levelId = 'opening') { this.random = random; this.reset(levelId); }
+    reset(levelId = this.level?.id || 'opening') {
+      this.level = LEVELS.find(l => l.id === levelId) || LEVELS[0];
+      this.phase = 'prep'; this.time = this.level.prepTime; this.paused = false; this.held = null;
+      this.stations = getStations(this.level);
+      this.woks = Object.fromEntries(this.stations.filter(s => s.type === 'wok').map(s => [s.id, emptyWok()]));
+      this.orders = []; this.nextId = 1; this.spawnTime = this.level.orderInterval; this.spawnIndex = 0; this.plates = this.level.plateCount; this.returns = [];
+      this.orderBag = [];
+      this.revenue = 0; this.served = 0; this.expired = 0; this.burned = 0; this.wasted = 0; this.flips = 0; this.events = [];
+    }
+    get wok() { return this.woks.wok; }
+    get satisfaction() { return Math.max(0, 100 - this.expired * 12); }
+    message(text, sound = 'tap') { this.events.push({ text, sound }); if (this.events.length > 50) this.events.shift(); }
+    startService() { if (this.phase !== 'prep' || this.paused) return; this.phase = 'service'; this.time = this.level.serviceTime; this.level.firstOrders.forEach(key => this.addOrder(key)); this.message('開店啦！第一批客人來了。', 'order'); }
+    addOrder(recipe) {
+      if (this.phase === 'closing' || this.phase === 'ended' || this.orders.length >= this.level.maxOrders) return;
+      if (recipe && !this.level.menu.includes(recipe)) return;
+      if (!recipe && !this.orderBag.length) {
+        this.orderBag = [...this.level.menu];
+        for (let i = this.orderBag.length - 1; i > 0; i--) { const j = Math.min(i, Math.max(0, Math.floor(this.random() * (i + 1)))); [this.orderBag[i], this.orderBag[j]] = [this.orderBag[j], this.orderBag[i]]; }
+      }
+      const key = recipe || this.orderBag.pop();
+      this.orders.push({ id: this.nextId++, table: this.spawnIndex++ % 3 + 1, recipe: key, remaining: RECIPES[key].patience, total: RECIPES[key].patience });
+    }
+    interact(id) {
+      if (this.paused || this.phase === 'ended') return;
+      const s = this.stations.find(s => s.id === id); if (!s) return;
+      if (s.type === 'supply') {
+        if (this.held) return this.message('先把手上的東西放下。');
+        this.held = { id: s.supply }; this.message('拿到了' + ITEMS[s.supply].name);
+      } else if (s.type === 'board' || s.type === 'counter') {
+        if (!this.held && s.item) { this.held = s.item; s.item = null; s.progress = 0; this.message('拿起' + ITEMS[this.held.id].name); }
+        else if (this.held && !s.item) {
+          if (s.type === 'board' && !ITEMS[this.held.id].processed && !ITEMS[this.held.id].chopped) return this.message('砧板只放需要切的蔬菜或肉類，其他物品可放備料檯。');
+          s.item = this.held; this.held = null; s.progress = 0; this.message(s.type === 'board' ? '放上砧板，空手按住 F 切料。' : '放到備料檯了。');
+        } else this.message(s.item ? '這裡已經有東西了。' : '手上有食材時，按 E 放上來。');
+      } else if (s.type === 'plates') {
+        if (this.held?.id === 'plate') { this.plates++; this.held = null; this.message('餐盤放回架上。'); }
+        else if (this.held) this.message('先把手上的東西放下。');
+        else if (this.plates) { this.plates--; this.held = { id: 'plate' }; this.message('拿好餐盤，到炒爐按 E 盛裝。'); }
+        else this.message('餐盤還在回收中，稍等一下。');
+      } else if (s.type === 'wok') this.interactWok(s.id);
+      else if (s.type === 'serve') this.serve();
+      else if (s.type === 'trash') {
+        if (!this.held) return this.message('沒有需要丟棄的東西。');
+        if (this.held.id === 'plate') return this.message('餐盤可以放回餐盤架。');
+        const dish = ITEMS[this.held.id].kind === 'dish'; this.held = dish ? { id: 'plate' } : null; this.wasted++; this.message('已清理，繼續加油。');
+      }
+    }
+    interactWok(id = 'wok') {
+      const w = this.woks[id];
+      if (!w || this.paused || this.phase === 'ended') return;
+      if (w.state === 'ready') {
+        if (this.held?.id !== 'plate') return this.message('拿一個乾淨餐盤，再按 E 盛裝。');
+        this.held = { id: RECIPES[w.recipe].dish, quality: w.flipped }; this.clearWok(id); this.message('起鍋！送到右側出餐口吧。', 'done'); return;
+      }
+      if (w.state === 'burned') return this.message('空手按住 F 兩秒，清理燒焦的鍋。');
+      if (w.state === 'cooking') return this.message('正在炒製，留意翻炒提示。');
+      if (!this.held) return this.message(w.ingredients.length ? '材料備齊後按 F 開火；不需要的材料可按住 F 清空。' : '把切好的食材放進鍋裡。');
+      if (!canAdd(w.ingredients, this.held.id, this.level.menu)) return this.message('這個食材不符合目前的配方，蔬菜和肉要先切好。');
+      w.ingredients.push(this.held.id); this.held = null; w.state = 'loading'; w.clearProgress = 0;
+      this.message(recipeFor(w.ingredients, this.level.menu) ? '材料齊了！按 F 開火。' : '已下料，可做：' + this.missingIngredients(id));
+    }
+    missingIngredients(id = 'wok') {
+      const w = this.woks[id]; if (!w) return '';
+      return this.level.menu.map(key => RECIPES[key]).filter(r => w.ingredients.every(i => r.ingredients.includes(i))).map(r => r.name + '（缺' + r.ingredients.filter(i => !w.ingredients.includes(i)).map(i => ITEMS[i].name).join('、') + '）').join(' 或 ');
+    }
+    clearWok(id = 'wok') { if (this.woks[id]) this.woks[id] = emptyWok(); }
+    action(id) {
+      if (this.paused || this.phase === 'ended' || !this.woks[id]) return;
+      const w = this.woks[id];
+      if (w.state === 'loading') {
+        const recipe = recipeFor(w.ingredients, this.level.menu);
+        if (!recipe) return this.message('可做：' + this.missingIngredients(id) + '。按住 F 可清空。');
+        w.recipe = recipe; w.state = 'cooking'; w.elapsed = 0; w.clearProgress = 0; this.message('開火！可以先去準備下一道菜。', 'fire');
+      } else if (w.state === 'cooking') {
+        const progress = w.elapsed / RECIPES[w.recipe].cookTime;
+        if (progress >= .4 && progress <= .85 && !w.flipped) { w.flipped = true; this.flips++; this.message('翻炒漂亮！品質獎勵 +10%', 'done'); }
+        else this.message(w.flipped ? '已完成翻炒，等起鍋吧。' : '等進度到 40%～85% 時再翻炒。');
+      }
+    }
+    serve() {
+      if (this.paused || this.phase === 'ended') return;
+      const item = this.held && ITEMS[this.held.id];
+      if (!item || item.kind !== 'dish') return this.message('把完成的料理裝盤後送過來。');
+      const match = this.orders.filter(o => o.recipe === item.recipe).sort((a, b) => a.remaining - b.remaining)[0];
+      if (!match) return this.message('目前沒有客人點這道菜，先放備料檯。');
+      const r = RECIPES[item.recipe]; const income = r.price + Math.round(r.price * .2 * match.remaining / match.total) + (this.held.quality ? Math.round(r.price * .1) : 0);
+      this.revenue += income; this.served++; this.orders = this.orders.filter(o => o !== match); this.held = null; this.returns.push(5);
+      this.message('第 ' + match.table + ' 桌，上菜！收入 +$' + income, 'serve');
+    }
+    tick(dt, workingStation = null) {
+      if (this.paused || this.phase === 'ended' || !Number.isFinite(dt) || dt <= 0) return;
+      // Bounded steps keep cooking and phase boundaries correct even after a slow frame.
+      while (dt > 1e-8 && this.phase !== 'ended') { const step = Math.min(dt, .05); this.step(step, workingStation); dt -= step; }
+    }
+    step(dt, workingStation) {
+      this.time -= dt;
+      for (let i = this.returns.length - 1; i >= 0; i--) { this.returns[i] -= dt; if (this.returns[i] <= 0) { this.plates++; this.returns.splice(i, 1); } }
+      const board = this.stations.find(s => s.type === 'board' && s.id === workingStation);
+      if (board && !this.held && board.item && ITEMS[board.item.id].processed) {
+        board.progress += dt;
+        if (board.progress >= 2) { board.item.id = ITEMS[board.item.id].processed; board.progress = 2; this.message('切好了！按 E 拿起食材。', 'done'); }
+      }
+      for (const [id, w] of Object.entries(this.woks)) {
+      const label = id === 'wok' ? '一號鍋' : '二號鍋';
+      if (w.state === 'cooking') {
+        const old = w.elapsed; w.elapsed += dt;
+        if (old < RECIPES[w.recipe].cookTime * .4 && w.elapsed >= RECIPES[w.recipe].cookTime * .4) this.message(label + '可以翻炒了！到炒爐前按 F。', 'order');
+        if (w.elapsed >= RECIPES[w.recipe].cookTime) { w.state = 'ready'; w.readyTime = 0; this.message(label + '炒好了！拿盤盛裝，8 秒後會燒焦。', 'done'); }
+      } else if (w.state === 'ready') {
+        w.readyTime += dt;
+        if (w.readyTime >= 8) { w.state = 'burned'; this.burned++; this.message(label + '燒焦了！空手按住 F 清鍋。', 'bad'); }
+      }
+      if ((w.state === 'burned' || (w.state === 'loading' && !recipeFor(w.ingredients, this.level.menu))) && workingStation === id && !this.held) {
+        w.clearProgress += dt;
+        if (w.clearProgress >= 2) { this.wasted++; this.clearWok(id); this.message(label + '清乾淨了，重新出發。'); }
+      } else w.clearProgress = 0;
+      }
+      if (this.phase !== 'prep') {
+        for (const order of [...this.orders]) { order.remaining -= dt; if (order.remaining <= 0) { this.orders = this.orders.filter(o => o !== order); this.expired++; this.message('客人等太久，取消了一道菜。', 'bad'); } }
+        if (this.phase === 'service' && this.time > 0) { this.spawnTime -= dt; if (this.spawnTime <= 0) { const count = this.orders.length; this.addOrder(); this.spawnTime = this.level.orderInterval; if (this.orders.length > count) this.message('新訂單！看一下點菜單。', 'order'); } }
+      }
+      if (this.time <= 0) {
+        if (this.phase === 'prep') this.startService();
+        else if (this.phase === 'service') { this.phase = 'closing'; this.time = this.level.closingTime; this.message('停止接單，完成最後幾道菜就打烊。', 'order'); }
+        else this.finish();
+      }
+      if (this.phase === 'closing' && this.orders.length === 0) this.finish();
+    }
+    finish() { if (this.phase === 'ended') return; this.expired += this.orders.length; this.orders = []; this.phase = 'ended'; this.time = 0; }
+  }
+  const api = { Kitchen, ITEMS, RECIPES, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.HotStirFry = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this);

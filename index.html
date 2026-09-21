@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>rechao — 熱炒開店啦！｜單人料理小遊戲</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="masthead">
+      <div class="brand"><span class="brand-mark">炒</span><div><div class="eyebrow">TAIWAN • NIGHT KITCHEN</div><h1>熱炒開店啦<span>！</span></h1></div></div>
+      <div class="header-right"><span class="solo" id="current-level">單人料理遊戲 · 第一晚開張</span><button id="sound" class="icon-button" aria-label="切換音效">音效 開</button><button id="pause" class="icon-button" disabled>暫停 <kbd>Esc</kbd></button></div>
+    </header>
+    <section class="dashboard" aria-label="營業狀態">
+      <div class="shift"><span class="live-dot"></span><div><small id="phase-label">準備開店</small><strong id="clock">00:20</strong></div></div>
+      <div class="metric"><small>今晚營收</small><strong><span class="currency">$</span><span id="revenue">0</span></strong></div>
+      <div class="metric"><small>已上菜</small><strong id="served">0 <span class="unit">道</span></strong></div>
+      <div class="metric"><small>客人滿意度</small><strong id="satisfaction">100<span class="unit">%</span></strong></div>
+      <div class="shift-note"><span id="shift-title">巷口小店 / NIGHT 01</span><p id="phase-note">先備料，等客人上門。</p></div>
+    </section>
+    <div class="play-layout">
+      <section class="kitchen-panel">
+        <div class="panel-heading"><span id="kitchen-title">第一晚開張 · 今晚，你是總舖師</span><span id="held-label">雙手空空</span></div>
+        <div class="canvas-wrap"><canvas id="game" width="1160" height="720" aria-label="台灣巷口熱炒店，左側操作廚房、右側用餐區。使用 WASD 移動、E 拿放、F 料理"></canvas><div id="toast" role="status"></div><div id="interaction"></div></div>
+        <div id="wok-status" class="wok-status" aria-label="各炒爐狀態"></div>
+        <div class="control-bar"><span><kbd>W A S D</kbd> / <kbd>↑ ↓ ← →</kbd> 移動</span><span><kbd>E</kbd> 拿放・盛裝・出餐</span><span><kbd>F</kbd> 切料・炒菜</span></div>
+      </section>
+      <aside>
+        <section class="orders-panel"><div class="side-heading"><h2>點菜單</h2><span id="order-count">0 / 2</span></div><p class="section-subtitle">熱騰騰上桌，客人就開心。</p><div id="orders"></div><button id="open-early" class="small-action">備料完成，提早開店 →</button></section>
+        <section class="recipe-panel"><div class="side-heading"><h2>今晚菜單</h2><span id="menu-count">2 道拿手菜</span></div><div id="recipe-list"></div><div class="chef-note"><strong>主廚筆記</strong><p id="tip">站到工作站旁，看腳下的操作提示。按住 F 才能持續切料。</p></div></section>
+      </aside>
+    </div>
+    <footer><span>小小廚房，大大鍋氣。</span><span>原型 v0.3 · 巷口熱炒美術版 · 鍵盤操作</span></footer>
+  </main>
+  <div id="overlay" class="overlay">
+    <section class="modal level-modal" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+      <div class="modal-kicker">三個夜晚，四道拿手菜</div><h2 id="welcome-title">今晚，想挑戰哪一間熱炒店？</h2><p class="intro">一位主廚，從巷口開張到週五滿座。每關都能直接試玩。</p>
+      <div id="level-list" class="level-list" role="group" aria-label="選擇關卡"></div>
+      <div class="level-brief"><strong id="level-description"></strong><span id="level-goals"></span></div>
+      <div class="welcome-steps"><div><b>01</b><strong>備好料</strong><span>E 取料，砧板上按住 F</span></div><div><b>02</b><strong>起鍋炒</strong><span>食材放鍋，F 開火與翻炒</span></div><div><b>03</b><strong>上好菜</strong><span>拿空盤盛裝，送到出餐口</span></div></div><button id="start" class="primary">開始第一晚開張 →</button><p class="modal-foot" id="level-timing">20 秒備料 · 3 分鐘營業 · 45 秒收尾</p>
+    </section>
+    <section class="modal hidden" id="paused" role="dialog" aria-modal="true" aria-labelledby="pause-title"><div class="modal-kicker">休息一下</div><h2 id="pause-title">爐火與時間，都幫你暫停了。</h2><p class="intro">準備好了，就繼續出菜。</p><button id="resume" class="primary">繼續營業 →</button><button id="restart-pause" class="secondary">重新開始這一晚</button><button id="choose-pause" class="text-button">結束本局，返回選關</button></section>
+    <section class="modal hidden" id="results" role="dialog" aria-modal="true" aria-labelledby="result-title"><div class="modal-kicker" id="result-level">辛苦了，主廚</div><div id="stars" class="stars">★★★</div><h2 id="result-title">今晚打烊啦！</h2><p id="result-message" class="intro"></p><div id="result-stats"></div><p id="best-record"></p><button id="next-level" class="primary">挑戰下一晚 →</button><button id="restart" class="secondary">再開一晚</button><button id="choose-results" class="text-button">返回選關</button></section>
+  </div>
+  <script src="game-core.js"></script><script src="progress.js"></script><script src="movement.js"></script><script src="art.js"></script><script src="game.js"></script>
+</body>
+</html>
