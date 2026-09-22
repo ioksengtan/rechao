@@ -4,6 +4,8 @@ A 2D single-player cooking game inspired by Taiwan’s lively stir-fry restauran
 
 Current version: 0.4.0
 
+社群推廣用的繁體中文貼文、更新公告與短影片字幕，見 [社群文案](docs/social-copy.zh-TW.md)。
+
 單人 2D 俯視角熱炒店原型，使用原生 Canvas、JavaScript 與 CSS。所有場景與料理插圖均為原創 Canvas／SVG 繪圖，不依賴外部素材、套件或網路服務。
 
 ## v0.4 同鍋多份料理
