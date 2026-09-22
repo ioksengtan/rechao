@@ -9,7 +9,7 @@
     floor: '#c9c6a5', floorAlt: '#d1cdb1', wood: '#c18e55'
   };
   function createRenderer(ctx, data) {
-    const { ITEMS, RECIPES, cookDuration } = data;
+    const { ITEMS, RECIPES, cookDuration, chopDuration } = data;
     const state = { clock: 0, effects: [], tosses: {}, gesture: null, tables: {} };
     function box(x, y, w, h, fill, radius = 0, stroke, lineWidth = 2) {
       ctx.beginPath(); ctx.roundRect(x, y, w, h, radius);
@@ -202,8 +202,9 @@
           const isCutting = chopping === s.id, phase = state.clock * 18;
           if (isCutting) { knife(x + 1, y - 10 - Math.abs(Math.sin(phase)) * 13, -.12); for (let i = 0; i < 3; i++) { const t = (state.clock * 2 + i * .33) % 1; box(x - 15 + t * 26, y - 12 - Math.sin(t * Math.PI) * 12, 3, 3, '#a5b774', 1); } }
           else knife(x + 6, y - 8, -1.2);
-          if (s.progress > 0 && s.item && !ITEMS[s.item.id].chopped) bar(x, y - 45, s.progress / 2);
+          if (s.progress > 0 && s.item && !ITEMS[s.item.id].chopped) bar(x, y - 45, s.progress / chopDuration(s.item));
         }
+        if (s.item && (s.item.count || 1) > 1) badge(`×${s.item.count}`, x + 22, y - 23, 32, '#f1e2a6', '#795332');
         if (s.type === 'counter') { if (s.item) item(s.item.id, x, y - 6, .95); else { box(x - 19, y - 18, 37, 24, null, '#b9cabb', 1); line([[x - 12, y - 10], [x + 5, y - 10]], '#d7dfca', 1); } }
         if (s.type === 'plates') {
           if (game.plates) for (let i = Math.min(4, game.plates) - 1; i >= 0; i--) plate(x, y - 7 + i * 4, .88);

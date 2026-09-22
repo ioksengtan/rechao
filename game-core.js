@@ -50,6 +50,7 @@
     return portionsFor(proposed) <= 3 && menu.some(key => proposed.every(i => RECIPES[key].ingredients.includes(i)));
   }
   const cookDuration = w => RECIPES[w.recipe].cookTime * (1 + .4 * ((w.portions || 1) - 1));
+  const chopDuration = item => 2 * (1 + .4 * ((item?.count || 1) - 1));
   const emptyWok = () => ({ state: 'empty', ingredients: [], portions: 0, remaining: 0, elapsed: 0, recipe: null, flipped: false, readyTime: 0, clearProgress: 0 });
   function getStations(level) {
     const ingredients = new Set(level.menu.flatMap(key => RECIPES[key].ingredients));
@@ -92,6 +93,14 @@
         else if (this.held && !s.item) {
           if (s.type === 'board' && !ITEMS[this.held.id].processed && !ITEMS[this.held.id].chopped) return this.message('砧板只放需要切的蔬菜或肉類，其他物品可放備料檯。');
           s.item = this.held; this.held = null; s.progress = 0; this.message(s.type === 'board' ? '放上砧板，空手按住 F 切料。' : '放到備料檯了。');
+        } else if (this.held && s.item && s.type === 'counter') {
+          [this.held, s.item] = [s.item, this.held];
+          this.message('已交換手上與備料檯的物品。');
+        } else if (this.held && s.item && s.type === 'board' && this.held.id === s.item.id && ITEMS[s.item.id].processed) {
+          const count = (s.item.count || 1) + (this.held.count || 1);
+          if (count > 3) return this.message('砧板最多放 3 份同一種食材。');
+          s.item.count = count; this.held = null; s.progress = 0;
+          this.message(`砧板共 ${count} 份，空手按住 F 一起切；加料後重新計時。`);
         } else this.message(s.item ? '這裡已經有東西了。' : '手上有食材時，按 E 放上來。');
       } else if (s.type === 'plates') {
         if (this.held?.id === 'plate') { this.plates++; this.held = null; this.message('餐盤放回架上。'); }
@@ -117,7 +126,12 @@
       if (w.state === 'cooking') return this.message('正在炒製，留意翻炒提示。');
       if (!this.held) return this.message(w.ingredients.length ? '材料備齊後按 F 開火；不需要的材料可按住 F 清空。' : '把切好的食材放進鍋裡。');
       if (!canAdd(w.ingredients, this.held.id, this.level.menu)) return this.message('同鍋最多 3 份同一道菜；食材須符合配方，蔬菜和肉要先切好。');
-      w.ingredients.push(this.held.id); this.held = null; w.state = 'loading'; w.clearProgress = 0;
+      const proposed = [...w.ingredients];
+      for (let i = 0; i < (this.held.count || 1); i++) {
+        if (!canAdd(proposed, this.held.id, this.level.menu)) return this.message('整批下鍋會超過 3 份，請放到另一口鍋或備料檯。');
+        proposed.push(this.held.id);
+      }
+      w.ingredients = proposed; this.held = null; w.state = 'loading'; w.clearProgress = 0;
       this.message(recipeFor(w.ingredients, this.level.menu) ? `材料齊了，共 ${portionsFor(w.ingredients)} 份！F 開火，或繼續加料至 3 份。` : '已下料，可做：' + this.missingIngredients(id));
     }
     missingIngredients(id = 'wok') {
@@ -163,7 +177,7 @@
       const board = this.stations.find(s => s.type === 'board' && s.id === workingStation);
       if (board && !this.held && board.item && ITEMS[board.item.id].processed) {
         board.progress += dt;
-        if (board.progress >= 2) { board.item.id = ITEMS[board.item.id].processed; board.progress = 2; this.message('切好了！按 E 拿起食材。', 'done'); }
+        if (board.progress >= chopDuration(board.item)) { board.item.id = ITEMS[board.item.id].processed; board.progress = chopDuration(board.item); this.message('切好了！按 E 拿起食材。', 'done'); }
       }
       for (const [id, w] of Object.entries(this.woks)) {
       const label = id === 'wok' ? '一號鍋' : '二號鍋';
@@ -193,7 +207,7 @@
     }
     finish() { if (this.phase === 'ended') return; this.expired += this.orders.length; this.orders = []; this.phase = 'ended'; this.time = 0; }
   }
-  const api = { Kitchen, ITEMS, RECIPES, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor, portionsFor, cookDuration };
+  const api = { Kitchen, ITEMS, RECIPES, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor, portionsFor, cookDuration, chopDuration };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HotStirFry = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

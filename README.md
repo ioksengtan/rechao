@@ -2,11 +2,22 @@
 
 A 2D single-player cooking game inspired by Taiwan’s lively stir-fry restaurants. Prep ingredients, fire up the wok, and serve hungry customers through the dinner rush.
 
-Current version: 0.4.0
+Current version: 0.5.0
 
 社群推廣用的繁體中文貼文、更新公告與短影片字幕，見 [社群文案](docs/social-copy.zh-TW.md)。
 
 單人 2D 俯視角熱炒店原型，使用原生 Canvas、JavaScript 與 CSS。所有場景與料理插圖均為原創 Canvas／SVG 繪圖，不依賴外部素材、套件或網路服務。
+
+## 源起故事
+
+選關畫面點「源起 · 我的熱炒之旅」，可閱讀外國旅人 Alex 來台灣打工體驗、跟著阿明老闆認識熱炒料理的 9 段對話。使用按鈕或 Enter／空白鍵／方向鍵逐句閱讀，Esc 返回選關；可重看，不影響關卡選擇、計時與紀錄。
+
+## v0.5 批次切料與備料檯交換
+
+- 砧板可先放入最多 3 份同種未切食材，空手按住 F 一次切好。1／2／3 份需 2／2.8／3.6 秒；追加材料會重新計時。
+- 切好的食材整批拿取、暫存及下鍋；若整批會讓鍋內超過 3 份，會保留手上整批食材。
+- 砧板不能混合不同食材，也不能把生食材加到已切好的食材上。
+- 備料檯已有物品且手上有物品時，按 E 直接交換，保留食材數量與料理品質。
 
 ## v0.4 同鍋多份料理
 

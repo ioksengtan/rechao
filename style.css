@@ -74,3 +74,20 @@ aside { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c6ceba transp
 #toast { top: 70px; border: 1px solid #dfc99f; background: #fff4dbf2; }
 #interaction { bottom: 48px; background: #294b3bf2; border: 1px solid #9eb18c; }
 @media (max-width: 1000px) { .dish-art { width: 52px; height: 44px; } }
+
+.origin-open { display: block; margin: 0 auto 10px; }
+.origin-modal { width: min(680px, 94vw); max-height: 92vh; overflow-y: auto; }
+.origin-scene { display: flex; align-items: center; gap: 20px; text-align: left; padding: 22px; margin: 18px 0; border-radius: 12px; background: #29433e; color: #fff0cb; border-top: 8px solid #c68b64; }
+.origin-scene strong { font-size: 24px; letter-spacing: 4px; }
+.origin-scene p { margin: 8px 0 0; font-size: 14px; color: #e3dcc4; }
+.origin-lantern { background: #b9563c; border: 2px solid #e5b87d; border-radius: 40%; padding: 16px 10px; font-size: 28px; }
+.origin-steam { margin-left: auto; font-size: 42px; }
+.origin-dialogue { display: flex; gap: 18px; text-align: left; padding: 22px; border: 3px double #8c9b83; border-radius: 10px; background: #fff9e9; min-height: 160px; }
+.origin-portrait { display: grid; place-items: center; flex: 0 0 58px; height: 68px; border-radius: 12px; background: #dbe2cc; color: #345348; font-size: 28px; border: 2px solid #9eac90; }
+.origin-lines strong { color: #995535; font-size: 16px; }
+.origin-lines p { font-size: 18px; line-height: 1.85; margin: 10px 0 0; }
+.origin-controls { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 18px; }
+.origin-controls button { width: auto; margin: 0; padding: 12px 20px; }
+.origin-controls span { color: #687965; font-size: 13px; }
+.origin-controls button:disabled { opacity: .4; cursor: default; }
+@media (max-width: 520px) { .origin-dialogue { padding: 14px; gap: 10px; } .origin-portrait { flex-basis: 38px; height: 48px; font-size: 22px; } .origin-lines p { font-size: 16px; } .origin-steam { display: none; } }

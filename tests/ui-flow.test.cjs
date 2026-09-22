@@ -64,3 +64,24 @@ test('returning from a paused game clears input and session without recording an
   assert.equal(ui.game.phase,'prep');assert.equal(ui.nodes.pause.textContent,'暫停 Esc');assert.equal(ui.nodes.pause.disabled,true);assert.equal(ui.records.size,0);
   ui.select('opening');ui.nodes.start.onclick();const y=ui.player.y;ui.frame();assert.equal(ui.player.y,y);assert.equal(Object.keys(ui.game.woks).length,1);assert.equal(ui.game.plates,4);
 });
+
+test('origin dialogue advances, goes back, exits and replays without starting a shift', () => {
+  const ui = runtime(); ui.select('friday');
+  const before = JSON.stringify(ui.game);
+  ui.nodes['origin-open'].onclick();
+  assert.equal(ui.nodes.origin.classList.contains('hidden'), false);
+  assert.equal(ui.nodes.welcome.classList.contains('hidden'), true);
+  assert.match(ui.nodes['origin-text'].textContent, /Alex/);
+  assert.equal(ui.nodes['origin-prev'].disabled, true);
+  ui.press('ArrowRight'); assert.equal(ui.nodes['origin-progress'].textContent, '2 / 9');
+  ui.press('ArrowLeft'); assert.equal(ui.nodes['origin-progress'].textContent, '1 / 9');
+  ui.press('d'); for (let i=0;i<20;i++) ui.frame();
+  assert.equal(JSON.stringify(ui.game), before);
+  for (let i=0;i<8;i++) ui.nodes['origin-next'].onclick();
+  assert.equal(ui.nodes['origin-next'].textContent, '前往選關 →');
+  ui.press('Enter'); assert.equal(ui.nodes.origin.classList.contains('hidden'), true);
+  assert.equal(ui.game.level.id, 'friday'); assert.equal(ui.records.size, 0);
+  ui.nodes['origin-open'].onclick(); assert.equal(ui.nodes['origin-progress'].textContent, '1 / 9');
+  ui.press('Escape'); assert.equal(ui.nodes.welcome.classList.contains('hidden'), false);
+  ui.nodes.start.onclick(); ui.frame(); assert.equal(ui.game.level.id, 'friday');
+});

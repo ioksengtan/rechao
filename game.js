@@ -14,6 +14,38 @@
   try { storage = localStorage; } catch (_) { /* Scores remain session-only when browser storage is blocked. */ }
   const progress = new window.HotStirFryProgress.Progress(storage);
   let selectedLevel = LEVELS[0].id;
+  const originLines = [
+    ['抵達台灣的第一週', '艾 Alex · 旅人', '艾', '我叫 Alex。這次來台灣，我想試試一邊打工、一邊生活，看看旅行指南以外的日常。'],
+    ['夜裡，巷口傳來炒鍋聲', '艾 Alex · 旅人', '艾', '有天晚上，我跟著香味走進一間熱炒店。圓桌、紅椅子，還有一盤盤冒著熱氣的菜……我一下就喜歡上這裡了。'],
+    ['一盤三杯雞，讓人多留了一會兒', '艾 Alex · 旅人', '艾', '九層塔的香氣好特別！老闆，這道菜是怎麼做的？為什麼叫三杯雞？'],
+    ['老闆把火轉小，笑著回頭', '阿明 · 熱炒店老闆', '明', '你對料理有興趣喔？我們正好有打工體驗的機會。想學的話，可以從備料開始，我慢慢教你。'],
+    ['隔天傍晚，店門還沒開', '艾 Alex · 旅人', '艾', '真的可以嗎？我的中文還在學，炒菜也不太熟練。不過，我想親手做做看，了解這些我喜歡的味道。'],
+    ['第一件工作：繫好圍裙', '阿明 · 熱炒店老闆', '明', '不懂就問，不用急。先認識食材，再練切菜和火候。青菜、蛋炒飯，都是很好的開始。'],
+    ['砧板旁，擺著今天的食材', '艾 Alex · 旅人', '艾', '原來一盤菜上桌之前，有這麼多準備。我想記住的不只是配方，還有大家怎麼一起把這間店照顧好。'],
+    ['門口的燈亮了', '阿明 · 熱炒店老闆', '明', '準備好了嗎？今晚你先顧這口鍋。看清楚點菜單，切好料再下鍋，別忘了回來翻炒！'],
+    ['我的第一晚，即將開張', '艾 Alex · 旅人', '艾', '好！就從這間巷口熱炒店開始，用雙手認識台灣料理。今晚，請多多指教！']
+  ];
+  let originIndex = 0, originOpen = false;
+  function renderOrigin() {
+    const [scene, speaker, portrait, line] = originLines[originIndex];
+    $('origin-scene-label').textContent = scene; $('origin-speaker').textContent = speaker;
+    $('origin-portrait').textContent = portrait; $('origin-text').textContent = line;
+    $('origin-progress').textContent = `${originIndex + 1} / ${originLines.length}`;
+    $('origin-prev').disabled = originIndex === 0;
+    $('origin-next').textContent = originIndex === originLines.length - 1 ? '前往選關 →' : '下一句 →';
+  }
+  function closeOrigin() {
+    originOpen = false; $('origin').classList.add('hidden'); $('welcome').classList.remove('hidden'); $('origin-open').focus();
+  }
+  function nextOrigin() { if (originIndex < originLines.length - 1) { originIndex++; renderOrigin(); } else closeOrigin(); }
+  $('origin-open').onclick = () => {
+    if (running) return;
+    originOpen = true; originIndex = 0; keys.clear();
+    $('welcome').classList.add('hidden'); $('origin').classList.remove('hidden'); renderOrigin(); $('origin-next').focus();
+  };
+  $('origin-close').onclick = closeOrigin;
+  $('origin-next').onclick = nextOrigin;
+  $('origin-prev').onclick = () => { if (originIndex > 0) { originIndex--; renderOrigin(); } };
   function sound(type) {
     if (muted || !audio) return;
     const tones = { tap:[320], done:[523,659], order:[660,880], serve:[523,659,784], bad:[220,160], fire:[140,190] }[type] || [320];
@@ -77,6 +109,19 @@
   $('sound').onclick = () => { muted = !muted; $('sound').textContent = '音效 ' + (muted ? '關' : '開'); };
   addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
+    if (originOpen) {
+      if (['escape', 'enter', ' ', 'arrowright', 'arrowleft'].includes(key)) {
+        if (['enter', ' '].includes(key) && ['origin-close', 'origin-prev'].includes(document.activeElement?.id)) return;
+        e.preventDefault(); if (e.repeat) return;
+        if (key === 'escape') closeOrigin();
+        else if (key === 'arrowleft') $('origin-prev').onclick();
+        else if (key === 'enter' || key === ' ') {
+          if (['origin-close', 'origin-prev'].includes(document.activeElement?.id)) return;
+          nextOrigin();
+        } else nextOrigin();
+      }
+      return;
+    }
     if (running && !game.paused && !ended && ['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key)) e.preventDefault();
     if (key === 'escape' && !e.repeat) { pause(); return; }
     if (!running || game.paused || ended) return;
@@ -97,8 +142,8 @@
     if (!target || !running || ended) return '';
     const s = target;
     if (s.type === 'supply') return `E 取${ITEMS[s.supply].name}`;
-    if (s.type === 'board') return s.item ? (ITEMS[s.item.id].chopped ? 'E 拿起切好的食材' : '空手按住 F 切料 · E 拿起') : 'E 放上需要切的蔬菜／肉類';
-    if (s.type === 'counter') return s.item ? 'E 拿起物品' : 'E 暫放物品';
+    if (s.type === 'board') return s.item ? (ITEMS[s.item.id].chopped ? `E 拿起 ${s.item.count || 1} 份切好的食材` : `共 ${s.item.count || 1}/3 份 · E 加同種食材／空手拿起 · 按住 F 切料`) : 'E 放上需要切的蔬菜／肉類';
+    if (s.type === 'counter') return s.item ? (game.held ? 'E 交換手上與檯上物品' : `E 拿起${ITEMS[s.item.id].name} ×${s.item.count || 1}`) : 'E 暫放物品';
     if (s.type === 'plates') return `E ${game.held?.id === 'plate' ? '放回' : '拿取'}餐盤 · 剩 ${game.plates} 個`;
     if (s.type === 'serve') return 'E 上菜 · 自動送至正確桌次';
     if (s.type === 'trash') return 'E 丟棄食材／清空餐盤';
@@ -113,7 +158,7 @@
     const labels = { prep:'備料時間', service:'營業中', closing:'最後出菜', ended:'今晚打烊' };
     $('phase-label').textContent = labels[game.phase]; const time = Math.ceil(Math.max(0, game.time)); $('clock').textContent = `${String(Math.floor(time/60)).padStart(2,'0')}:${String(time%60).padStart(2,'0')}`;
     $('revenue').textContent = game.revenue.toLocaleString(); $('served').innerHTML = `${game.served} <span class="unit">道</span>`; $('satisfaction').innerHTML = `${game.satisfaction}<span class="unit">%</span>`;
-    $('held-label').textContent = game.held ? '手上拿著：' + ITEMS[game.held.id].name : '雙手空空';
+    $('held-label').textContent = game.held ? '手上拿著：' + ITEMS[game.held.id].name + ` ×${game.held.count || 1}` : '雙手空空';
     $('phase-note').textContent = { prep:'先切點青菜，讓第一道菜快點上桌。', service:'大火快炒，慢慢也能熟能生巧。', closing:'不接新單了，把最後幾道菜送上桌。', ended:'謝謝招待，明天見！' }[game.phase];
     $('open-early').classList.toggle('hidden', game.phase !== 'prep');
     $('order-count').textContent = `${game.orders.length} / ${game.level.maxOrders}`;
