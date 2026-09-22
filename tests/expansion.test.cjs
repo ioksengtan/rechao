@@ -58,6 +58,7 @@ test('levels restrict supplies, menus, order limits and provide all recipes fair
     for (const s of g.stations.filter(s => s.type === 'supply')) {
       assert.ok(level.menu.some(key => RECIPES[key].ingredients.includes(s.supply) || RECIPES[key].ingredients.includes(ITEMS[s.supply].processed)));
     }
+    if (level.mode === 'training') { g.addOrder(); assert.equal(g.orders.length, 0); continue; }
     const recipes = new Set();
     for (let i=0; i<level.menu.length; i++) { g.addOrder(); recipes.add(g.orders[0].recipe); g.orders = []; }
     assert.deepEqual([...recipes].sort(), [...level.menu].sort());

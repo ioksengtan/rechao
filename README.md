@@ -1,8 +1,15 @@
 # rechao — 熱炒開店啦！
 
+## v0.6 學習筆記
+
+選關依備料、辛香料、調醬、果汁、熱炒營業分類。備料課與三個原有營業關卡自由開放；其他分類標示籌備中。
+
+備料課不限時，不接客、不用炒鍋或餐盤。切好青菜 3 份及蔥 2 份，交到右側驗收檯即可三星結業，並獨立儲存完成紀錄。超出的份數留在手上。結業後可重玩、返回選課或挑戰第一晚開張。
+
+
 A 2D single-player cooking game inspired by Taiwan’s lively stir-fry restaurants. Prep ingredients, fire up the wok, and serve hungry customers through the dinner rush.
 
-Current version: 0.5.0
+Current version: 0.6.0
 
 社群推廣用的繁體中文貼文、更新公告與短影片字幕，見 [社群文案](docs/social-copy.zh-TW.md)。
 

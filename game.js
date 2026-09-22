@@ -13,7 +13,11 @@
   let storage;
   try { storage = localStorage; } catch (_) { /* Scores remain session-only when browser storage is blocked. */ }
   const progress = new window.HotStirFryProgress.Progress(storage);
-  let selectedLevel = LEVELS[0].id;
+  let selectedLevel = 'prep-school', selectedCourse = 'prep';
+  const courses = [['prep','備料'],['spices','辛香料'],['sauces','調醬'],['juice','果汁'],['service','熱炒營業']];
+  const courseFor = level => level.mode === 'training' ? 'prep' : 'service';
+  const nextLevel = () => game.level.mode === 'training' ? LEVELS[0] : LEVELS.filter(l => !l.mode)[LEVELS.filter(l => !l.mode).indexOf(game.level)+1];
+  game.reset(selectedLevel);
   const originLines = [
     ['抵達台灣的第一週', '艾 Alex · 旅人', '艾', '我叫 Alex。這次來台灣，我想試試一邊打工、一邊生活，看看旅行指南以外的日常。'],
     ['夜裡，巷口傳來炒鍋聲', '艾 Alex · 旅人', '艾', '有天晚上，我跟著香味走進一間熱炒店。圓桌、紅椅子，還有一盤盤冒著熱氣的菜……我一下就喜歡上這裡了。'],
@@ -54,17 +58,30 @@
   function showToast(text, tone) { $('toast').textContent = text; $('toast').classList.add('show'); toastUntil = performance.now() + 3200; sound(tone); }
   function drainEvents() { const events = game.events.splice(0); if (events.length) { const e = events[events.length - 1]; showToast(e.text, e.sound); } }
   function renderLevelSelect() {
-    $('level-list').innerHTML = LEVELS.map((level, i) => {
+    const available = LEVELS.filter(l => courseFor(l) === selectedCourse);
+    $('course-tabs').innerHTML = courses.map(([id,label]) => `<button data-course="${id}" aria-pressed="${selectedCourse === id}" class="${selectedCourse === id ? 'selected' : ''}">${label}${['prep','service'].includes(id) ? '' : ' · 籌備中'}</button>`).join('');
+    $('course-note').textContent = available.length ? (progress.records['prep-school'].runs ? '已完成備料課，可以挑戰熱炒營業；所有課程皆可自由選擇。' : '推薦第一課：備料 → 開店前的備料課。所有已開放課程皆可自由選擇。') : '師傅正在準備這門課，敬請期待。可以先選備料或熱炒營業。';
+    $('start').disabled = !available.length;
+    $('welcome-steps').classList.toggle('hidden', selectedCourse !== 'service');
+    $('level-list').innerHTML = available.map((level, i) => {
       const record = progress.records[level.id];
-      return `<button class="level-card ${selectedLevel === level.id ? 'selected' : ''}" data-level="${level.id}" aria-pressed="${selectedLevel === level.id}"><span class="night-number">NIGHT 0${i+1}</span><strong>${level.name}</strong><span>${level.subtitle}</span><small>${level.menu.length} 道菜 · ${level.woks} 口炒鍋</small><span class="level-stars" aria-label="最佳 ${record.stars} 星">${'★'.repeat(record.stars)}${'☆'.repeat(3-record.stars)}</span><small>${record.runs || record.revenue ? '最佳營收 $'+record.revenue : '尚未完成 · 歡迎挑戰'}</small></button>`;
+      return `<button class="level-card ${selectedLevel === level.id ? 'selected' : ''}" data-level="${level.id}" aria-pressed="${selectedLevel === level.id}"><span class="night-number">${level.mode === 'training' ? 'LESSON' : 'NIGHT'} 0${i+1}</span><strong>${level.name}</strong><span>${level.subtitle}</span><small>${level.mode === 'training' ? '不限時 · 切料與批次處理' : level.menu.length + ' 道菜 · ' + level.woks + ' 口炒鍋'}</small><span class="level-stars" aria-label="最佳 ${record.stars} 星">${'★'.repeat(record.stars)}${'☆'.repeat(3-record.stars)}</span><small>${record.runs || record.revenue ? (level.mode === 'training' ? '已完成 ' + record.runs + ' 次' : '最佳營收 $'+record.revenue) : '尚未完成 · 歡迎挑戰'}</small></button>`;
     }).join('');
+    if (!available.length) {
+      $('level-description').textContent = '籌備中'; $('level-goals').textContent = ''; $('level-timing').textContent = ''; $('start').textContent = '尚未開放'; return;
+    }
     const level = LEVELS.find(l => l.id === selectedLevel);
     $('level-description').textContent = level.description;
     $('level-goals').textContent = level.stars.map((goal, i) => `${i+1} 星 $${goal}`).join('　／　');
     $('level-timing').textContent = `${level.prepTime} 秒備料 · ${level.serviceTime/60} 分鐘營業 · 最多 ${level.closingTime} 秒收尾 · 單人鍵盤操作`;
     $('start').textContent = `開始「${level.name}」 →`;
+    if (level.mode === 'training') { $('level-goals').textContent = '目標：切好的青菜 3 份、切好的蔥 2 份'; $('level-timing').textContent = '不限時 · 無客人催單 · 完成清單即可過關'; }
+
   }
   function renderMenu() {
+    $('revenue-metric').classList.toggle('hidden', game.level.mode === 'training');
+    $('satisfaction-metric').classList.toggle('hidden', game.level.mode === 'training');
+    $('served-title').textContent = game.level.mode === 'training' ? '已驗收' : '已上菜';
     $('menu-count').textContent = `${game.level.menu.length} 道拿手菜`;
     $('recipe-list').innerHTML = game.level.menu.map(key => {
       const r = RECIPES[key];
@@ -72,9 +89,23 @@
     }).join('');
     $('current-level').textContent = '單人料理遊戲 · ' + game.level.name;
     $('kitchen-title').textContent = game.level.name + ' · 今晚，你是總舖師';
+    $('orders-title').textContent = game.level.mode === 'training' ? '備料清單' : '點菜單';
+    $('orders-subtitle').textContent = game.level.mode === 'training' ? '切好後交到右側驗收檯，不需要盤子。' : '熱騰騰上桌，客人就開心。';
+    $('menu-title').textContent = game.level.mode === 'training' ? '師傅示範' : '今晚菜單';
+    if (game.level.mode === 'training') { $('menu-count').textContent = '3 個步驟'; $('recipe-list').innerHTML = '<p class="intro">① E 拿青菜或蔥，E 放上砧板。可重複加入同種食材，最多 3 份。<br>② 空手按住 F 切好，再按 E 整批拿起。<br>③ 到右側驗收檯按 E 交付。備料檯可以暫存或交換物品。</p>'; }
     $('shift-title').textContent = `${game.level.name} / NIGHT 0${LEVELS.indexOf(game.level)+1}`;
   }
+  $('course-tabs').onclick = event => {
+    const button = event.target.closest('[data-course]');
+    if (!button || !courses.some(c => c[0] === button.dataset.course)) return;
+    selectedCourse = button.dataset.course;
+    const first = LEVELS.find(l => courseFor(l) === selectedCourse);
+    if (first) { selectedLevel = first.id; game.reset(selectedLevel); art.reset(); renderMenu(); updateHUD(); }
+    renderLevelSelect(); $('course-tabs').querySelector(`[data-course="${selectedCourse}"]`).focus();
+  };
   function showSelection() {
+    selectedCourse = courseFor(game.level);
+
     running = false; ended = false; keys.clear(); target = null; game.reset(selectedLevel); art.reset();
     player = createPlayer();
     $('paused').classList.add('hidden'); $('results').classList.add('hidden'); $('welcome').classList.remove('hidden'); $('overlay').classList.remove('hidden'); $('pause').disabled = true; $('pause').textContent = '暫停 Esc';
@@ -84,15 +115,16 @@
   $('level-list').onclick = event => {
     const button = event.target.closest('[data-level]');
     if (!button || !LEVELS.some(l => l.id === button.dataset.level)) return;
-    selectedLevel = button.dataset.level; game.reset(selectedLevel); art.reset(); renderLevelSelect(); renderMenu(); updateHUD();
+    selectedLevel = button.dataset.level; selectedCourse = courseFor(LEVELS.find(l => l.id === selectedLevel)); game.reset(selectedLevel); art.reset(); renderLevelSelect(); renderMenu(); updateHUD();
     $('level-list').querySelector(`[data-level="${selectedLevel}"]`).focus();
   };
   function start() {
+    if (!LEVELS.some(l => courseFor(l) === selectedCourse)) return;
     try { audio ||= new (window.AudioContext || window.webkitAudioContext)(); audio.resume().catch(() => {}); } catch (_) { /* Audio is optional. */ }
     game.reset(selectedLevel); art.reset(); player = createPlayer(); keys.clear(); running = true; ended = false; target = null;
     $('overlay').classList.add('hidden'); $('pause').disabled = false; $('pause').textContent = '暫停 Esc'; last = performance.now();
     canvas.focus(); renderMenu();
-    showToast(game.level.woks === 1 ? '先去左上方青菜箱按 E 拿菜，再到砧板備料。' : `${game.level.name}：兩口鍋各自計時，先備好料再開火。`, 'done'); updateHUD();
+    showToast(game.level.mode === 'training' ? '阿明：先 E 拿青菜，放砧板後空手按住 F。切好送到右側驗收檯！' : game.level.woks === 1 ? '先去左上方青菜箱按 E 拿菜，再到砧板備料。' : `${game.level.name}：兩口鍋各自計時，先備好料再開火。`, 'done'); updateHUD();
   }
   function pause(force) {
     if (!running || ended) return;
@@ -104,7 +136,7 @@
   $('start').onclick = start; $('restart').onclick = start; $('restart-pause').onclick = start;
   $('pause').onclick = () => pause(); $('resume').onclick = () => pause(false);
   $('choose-pause').onclick = showSelection; $('choose-results').onclick = showSelection;
-  $('next-level').onclick = () => { const next = LEVELS[LEVELS.indexOf(game.level)+1]; if (next) { selectedLevel = next.id; start(); } };
+  $('next-level').onclick = () => { const next = nextLevel(); if (next) { selectedLevel = next.id; selectedCourse = courseFor(next); start(); } };
   $('open-early').onclick = () => { if (running && !game.paused) { game.startService(); drainEvents(); updateHUD(); } };
   $('sound').onclick = () => { muted = !muted; $('sound').textContent = '音效 ' + (muted ? '關' : '開'); };
   addEventListener('keydown', e => {
@@ -145,7 +177,7 @@
     if (s.type === 'board') return s.item ? (ITEMS[s.item.id].chopped ? `E 拿起 ${s.item.count || 1} 份切好的食材` : `共 ${s.item.count || 1}/3 份 · E 加同種食材／空手拿起 · 按住 F 切料`) : 'E 放上需要切的蔬菜／肉類';
     if (s.type === 'counter') return s.item ? (game.held ? 'E 交換手上與檯上物品' : `E 拿起${ITEMS[s.item.id].name} ×${s.item.count || 1}`) : 'E 暫放物品';
     if (s.type === 'plates') return `E ${game.held?.id === 'plate' ? '放回' : '拿取'}餐盤 · 剩 ${game.plates} 個`;
-    if (s.type === 'serve') return 'E 上菜 · 自動送至正確桌次';
+    if (s.type === 'serve') return game.level.mode === 'training' ? 'E 交給師傅驗收 · 不需要餐盤' : 'E 上菜 · 自動送至正確桌次';
     if (s.type === 'trash') return 'E 丟棄食材／清空餐盤';
     const w = game.woks[s.id];
     if (w.state === 'empty') return 'E 加入食材';
@@ -174,17 +206,30 @@
       if (w.state === 'burned') state = '燒焦 · 空手按住 F 清鍋';
       return `<div class="wok-chip ${w.state}"><b>${i+1} 號鍋</b><span>${state}</span></div>`;
     }).join('');
+    if (game.level.mode === 'training') {
+      $('served').innerHTML = `${game.served} <span class="unit">份</span>`;
+      $('phase-label').textContent = '備料練習'; $('clock').textContent = '不限時';
+      $('phase-note').textContent = '阿明：不趕時間，先認識食材與砧板。';
+      $('order-count').textContent = `${game.served} / 5 份`;
+      $('orders').innerHTML = game.level.goals.map(g => `<article class="order"><h3>${ITEMS[g.id].name}</h3><p>已驗收 ${game.delivered[g.id] || 0} / ${g.count} 份</p></article>`).join('');
+      $('tip').textContent = '同種食材可一起切，最多 3 份。按 E 交付時只收需要的份數，多的留在手上。';
+    }
   }
   function finish() {
     ended = true; keys.clear(); $('pause').disabled = true;
-    const stars = starCount(game.revenue, game.level);
+    const stars = game.level.mode === 'training' ? 3 : starCount(game.revenue, game.level);
     const record = progress.record(game.level.id, game.revenue, stars);
     $('stars').textContent = '★'.repeat(stars) + '☆'.repeat(3-stars);
     $('result-level').textContent = game.level.name + ' · 營業結算';
     $('result-message').textContent = stars >= 2 ? '巷口飄著鍋氣，客人帶著笑意回家。' : stars === 1 ? '成功站穩腳步，下一晚再挑戰更高營收。' : `辛苦了！再挑戰一次，營收達 $${game.level.stars[0]} 就能拿到第一顆星。`;
     $('result-stats').innerHTML = [['今晚收入', '$'+game.revenue],['成功上菜',game.served+' 道'],['逾時訂單',game.expired+' 道'],['客人滿意度',game.satisfaction+'%'],['成功翻炒',game.flips+' 次'],['燒焦 / 丟棄',game.burned+' / '+game.wasted+' 次']].map(([a,b])=>`<div><span>${a}</span><strong>${b}</strong></div>`).join('');
     $('best-record').textContent = `本關最佳 $${record.revenue} · 最佳 ${record.stars} 星 · 完成 ${record.runs} 次`;
-    const next = LEVELS[LEVELS.indexOf(game.level)+1];
+    if (game.level.mode === 'training') {
+      $('result-level').textContent = '備料課完成'; $('result-message').textContent = '阿明：食材都備好了！接下來可以挑戰第一晚開張。';
+      $('result-stats').innerHTML = `<p>青菜 3 份、蔥 2 份，驗收完成。</p>`;
+      $('best-record').textContent = `已完成 ${record.runs} 次 · 三星結業`;
+    }
+    const next = nextLevel();
     $('next-level').classList.toggle('hidden', !next);
     if (next) $('next-level').textContent = `挑戰「${next.name}」 →`;
     $('welcome').classList.add('hidden'); $('paused').classList.add('hidden'); $('results').classList.remove('hidden'); $('overlay').classList.remove('hidden'); sound('serve'); updateHUD(); (next ? $('next-level') : $('restart')).focus();

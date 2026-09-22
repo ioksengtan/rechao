@@ -85,3 +85,18 @@ test('origin dialogue advances, goes back, exits and replays without starting a 
   ui.press('Escape'); assert.equal(ui.nodes.welcome.classList.contains('hidden'), false);
   ui.nodes.start.onclick(); ui.frame(); assert.equal(ui.game.level.id, 'friday');
 });
+
+test('notebook categories, training completion and next service keep separate records',()=>{
+ const ui=runtime();
+ assert.match(ui.nodes['level-list'].innerHTML,/備料課/);
+ ui.nodes['course-tabs'].onclick({target:{closest:()=>({dataset:{course:'juice'}})}});
+ assert.equal(ui.nodes.start.disabled,true);assert.equal(ui.nodes['level-list'].innerHTML,'');
+ ui.nodes.start.onclick();ui.frame();assert.equal(ui.game.phase,'training');
+ ui.nodes['course-tabs'].onclick({target:{closest:()=>({dataset:{course:'prep'}})}});
+ ui.nodes.start.onclick();ui.frame();assert.equal(ui.nodes.clock.textContent,'不限時');
+ ui.game.held={id:'choppedGreens',count:3};ui.game.interact('serve');
+ ui.game.held={id:'choppedScallion',count:2};ui.game.interact('serve');ui.frame();
+ assert.match(ui.nodes['result-level'].textContent,/備料課完成/);
+ assert.equal(JSON.parse(ui.records.get(progress.KEY))['prep-school'].runs,1);
+ ui.nodes['next-level'].onclick();ui.frame();assert.equal(ui.game.level.id,'opening');
+});

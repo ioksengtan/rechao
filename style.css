@@ -97,3 +97,8 @@ aside { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c6ceba transp
 .origin-portrait img { display: block; width: 100%; height: auto; }
 .origin-lines { min-width: 0; }
 @media (max-width: 520px) { .origin-portrait { flex-basis: 72px; height: auto; } }
+
+.course-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+.course-tabs button { padding:10px 14px; border:1px solid #bdcbb6; background:#f4f0e3; border-radius:8px; color:#365847; }
+.course-tabs button.selected { background:#295747; color:#fff9ea; }
+#start:disabled { opacity:.5; cursor:default; }
