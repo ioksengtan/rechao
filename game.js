@@ -29,7 +29,7 @@
   function renderOrigin() {
     const [scene, speaker, portrait, line] = originLines[originIndex];
     $('origin-scene-label').textContent = scene; $('origin-speaker').textContent = speaker;
-    $('origin-portrait').textContent = portrait; $('origin-text').textContent = line;
+    $('origin-portrait').innerHTML = `<img src="assets/portrait-${portrait === '艾' ? 'alex' : 'aming'}.svg" alt="" width="180" height="210">`; $('origin-text').textContent = line;
     $('origin-progress').textContent = `${originIndex + 1} / ${originLines.length}`;
     $('origin-prev').disabled = originIndex === 0;
     $('origin-next').textContent = originIndex === originLines.length - 1 ? '前往選關 →' : '下一句 →';
