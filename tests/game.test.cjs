@@ -6,8 +6,8 @@ function addChopped(g, item) { g.interact(item);g.interact('board');advance(g,2.
 test('complete greens lifecycle: chop, cook, flip, plate, serve and recover plate',()=>{
   const g=new Kitchen();g.startService();addChopped(g,'greens');assert.equal(recipeFor(g.wok.ingredients),'greens');g.action('wok');advance(g,2.2);g.action('wok');assert.equal(g.flips,1);advance(g,2.9);assert.equal(g.wok.state,'ready');g.interact('plates');g.interact('wok');assert.equal(g.held.id,'greensDish');g.interact('serve');assert.equal(g.served,1);assert.ok(g.revenue>88);assert.equal(g.plates,3);assert.equal(g.held,null);advance(g,5.01);assert.equal(g.plates,4);
 });
-test('fried rice accepts any ingredient order but rejects raw greens and duplicate ingredients',()=>{
-  assert.equal(canAdd([], 'greens'),false);assert.equal(canAdd(['egg'],'egg'),false);
+test('fried rice accepts any ingredient order but rejects raw greens and a fourth portion',()=>{
+  assert.equal(canAdd([], 'greens'),false);assert.equal(canAdd(['egg','egg','egg'],'egg'),false);
   const g=new Kitchen();g.interact('egg');g.interact('wok');g.interact('rice');g.interact('wok');addChopped(g,'scallion');g.action('wok');advance(g,7.01);assert.equal(g.wok.state,'ready');g.interact('plates');g.interact('wok');assert.equal(g.held.id,'riceDish');
 });
 test('invalid delivery preserves held dish; matching selects most urgent order exactly once',()=>{

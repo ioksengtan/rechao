@@ -40,13 +40,17 @@
     { id: 'serve', type: 'serve', x: 14, y: 6, name: '出餐口' },
     { id: 'trash', type: 'trash', x: 7, y: 8, name: '廚餘桶' }
   ];
-  const exact = (a, b) => a.length === b.length && [...a].sort().join(',') === [...b].sort().join(',');
-  function recipeFor(ingredients, menu = Object.keys(RECIPES)) { return menu.find(key => exact(RECIPES[key].ingredients, ingredients)); }
+  const portionsFor = ingredients => Math.max(0, ...ingredients.map(id => ingredients.filter(i => i === id).length));
+  function recipeFor(ingredients, menu = Object.keys(RECIPES)) {
+    const n = portionsFor(ingredients);
+    return n >= 1 && n <= 3 ? menu.find(key => ingredients.length === RECIPES[key].ingredients.length * n && RECIPES[key].ingredients.every(id => ingredients.filter(i => i === id).length === n)) : undefined;
+  }
   function canAdd(ingredients, id, menu = Object.keys(RECIPES)) {
     const proposed = [...ingredients, id];
-    return menu.map(key => RECIPES[key]).some(r => proposed.every(i => proposed.filter(x => x === i).length <= r.ingredients.filter(x => x === i).length));
+    return portionsFor(proposed) <= 3 && menu.some(key => proposed.every(i => RECIPES[key].ingredients.includes(i)));
   }
-  const emptyWok = () => ({ state: 'empty', ingredients: [], elapsed: 0, recipe: null, flipped: false, readyTime: 0, clearProgress: 0 });
+  const cookDuration = w => RECIPES[w.recipe].cookTime * (1 + .4 * ((w.portions || 1) - 1));
+  const emptyWok = () => ({ state: 'empty', ingredients: [], portions: 0, remaining: 0, elapsed: 0, recipe: null, flipped: false, readyTime: 0, clearProgress: 0 });
   function getStations(level) {
     const ingredients = new Set(level.menu.flatMap(key => RECIPES[key].ingredients));
     return STATIONS.filter(s => (!s.advanced || level.woks > 1) && (s.type !== 'supply' || ingredients.has(s.supply) || ingredients.has(ITEMS[s.supply].processed))).map(s => ({ ...s, item: null, progress: 0 }));
@@ -107,18 +111,22 @@
       if (!w || this.paused || this.phase === 'ended') return;
       if (w.state === 'ready') {
         if (this.held?.id !== 'plate') return this.message('拿一個乾淨餐盤，再按 E 盛裝。');
-        this.held = { id: RECIPES[w.recipe].dish, quality: w.flipped }; this.clearWok(id); this.message('起鍋！送到右側出餐口吧。', 'done'); return;
+        this.held = { id: RECIPES[w.recipe].dish, quality: w.flipped }; w.remaining--; if (w.remaining <= 0) this.clearWok(id); this.message('起鍋！送到右側出餐口吧。', 'done'); return;
       }
       if (w.state === 'burned') return this.message('空手按住 F 兩秒，清理燒焦的鍋。');
       if (w.state === 'cooking') return this.message('正在炒製，留意翻炒提示。');
       if (!this.held) return this.message(w.ingredients.length ? '材料備齊後按 F 開火；不需要的材料可按住 F 清空。' : '把切好的食材放進鍋裡。');
-      if (!canAdd(w.ingredients, this.held.id, this.level.menu)) return this.message('這個食材不符合目前的配方，蔬菜和肉要先切好。');
+      if (!canAdd(w.ingredients, this.held.id, this.level.menu)) return this.message('同鍋最多 3 份同一道菜；食材須符合配方，蔬菜和肉要先切好。');
       w.ingredients.push(this.held.id); this.held = null; w.state = 'loading'; w.clearProgress = 0;
-      this.message(recipeFor(w.ingredients, this.level.menu) ? '材料齊了！按 F 開火。' : '已下料，可做：' + this.missingIngredients(id));
+      this.message(recipeFor(w.ingredients, this.level.menu) ? `材料齊了，共 ${portionsFor(w.ingredients)} 份！F 開火，或繼續加料至 3 份。` : '已下料，可做：' + this.missingIngredients(id));
     }
     missingIngredients(id = 'wok') {
       const w = this.woks[id]; if (!w) return '';
-      return this.level.menu.map(key => RECIPES[key]).filter(r => w.ingredients.every(i => r.ingredients.includes(i))).map(r => r.name + '（缺' + r.ingredients.filter(i => !w.ingredients.includes(i)).map(i => ITEMS[i].name).join('、') + '）').join(' 或 ');
+      const n = portionsFor(w.ingredients);
+      return this.level.menu.map(key => RECIPES[key]).filter(r => w.ingredients.every(i => r.ingredients.includes(i))).map(r => {
+        const missing = r.ingredients.map(id => ({ id, count: n - w.ingredients.filter(i => i === id).length })).filter(i => i.count > 0);
+        return `${r.name} ×${n}（${missing.length ? '缺' + missing.map(i => ITEMS[i.id].name + ' ×' + i.count).join('、') : '材料齊了'}）`;
+      }).join(' 或 ');
     }
     clearWok(id = 'wok') { if (this.woks[id]) this.woks[id] = emptyWok(); }
     action(id) {
@@ -127,9 +135,9 @@
       if (w.state === 'loading') {
         const recipe = recipeFor(w.ingredients, this.level.menu);
         if (!recipe) return this.message('可做：' + this.missingIngredients(id) + '。按住 F 可清空。');
-        w.recipe = recipe; w.state = 'cooking'; w.elapsed = 0; w.clearProgress = 0; this.message('開火！可以先去準備下一道菜。', 'fire');
+        w.portions = portionsFor(w.ingredients); w.remaining = w.portions; w.recipe = recipe; w.state = 'cooking'; w.elapsed = 0; w.clearProgress = 0; this.message('開火！可以先去準備下一道菜。', 'fire');
       } else if (w.state === 'cooking') {
-        const progress = w.elapsed / RECIPES[w.recipe].cookTime;
+        const progress = w.elapsed / cookDuration(w);
         if (progress >= .4 && progress <= .85 && !w.flipped) { w.flipped = true; this.flips++; this.message('翻炒漂亮！品質獎勵 +10%', 'done'); }
         else this.message(w.flipped ? '已完成翻炒，等起鍋吧。' : '等進度到 40%～85% 時再翻炒。');
       }
@@ -161,8 +169,8 @@
       const label = id === 'wok' ? '一號鍋' : '二號鍋';
       if (w.state === 'cooking') {
         const old = w.elapsed; w.elapsed += dt;
-        if (old < RECIPES[w.recipe].cookTime * .4 && w.elapsed >= RECIPES[w.recipe].cookTime * .4) this.message(label + '可以翻炒了！到炒爐前按 F。', 'order');
-        if (w.elapsed >= RECIPES[w.recipe].cookTime) { w.state = 'ready'; w.readyTime = 0; this.message(label + '炒好了！拿盤盛裝，8 秒後會燒焦。', 'done'); }
+        if (old < cookDuration(w) * .4 && w.elapsed >= cookDuration(w) * .4) this.message(label + '可以翻炒了！到炒爐前按 F。', 'order');
+        if (w.elapsed >= cookDuration(w)) { w.state = 'ready'; w.readyTime = 0; this.message(label + '炒好了！拿盤盛裝，8 秒後會燒焦。', 'done'); }
       } else if (w.state === 'ready') {
         w.readyTime += dt;
         if (w.readyTime >= 8) { w.state = 'burned'; this.burned++; this.message(label + '燒焦了！空手按住 F 清鍋。', 'bad'); }
@@ -185,7 +193,7 @@
     }
     finish() { if (this.phase === 'ended') return; this.expired += this.orders.length; this.orders = []; this.phase = 'ended'; this.time = 0; }
   }
-  const api = { Kitchen, ITEMS, RECIPES, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor };
+  const api = { Kitchen, ITEMS, RECIPES, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor, portionsFor, cookDuration };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HotStirFry = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

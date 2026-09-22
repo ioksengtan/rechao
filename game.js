@@ -1,7 +1,7 @@
 /* Single-player input, UI and presentation hooks. No runtime dependencies. */
 (() => {
   'use strict';
-  const { Kitchen, ITEMS, RECIPES, LEVELS, starCount } = window.HotStirFry;
+  const { Kitchen, ITEMS, RECIPES, LEVELS, starCount, portionsFor, cookDuration } = window.HotStirFry;
   const { createPlayer, movePlayer } = window.HotStirFryMovement;
   const $ = id => document.getElementById(id);
   const canvas = $('game'), ctx = canvas.getContext('2d');
@@ -36,7 +36,7 @@
     $('menu-count').textContent = `${game.level.menu.length} 道拿手菜`;
     $('recipe-list').innerHTML = game.level.menu.map(key => {
       const r = RECIPES[key];
-      return `<div class="recipe"><img class="dish-art" src="assets/${key}.svg" alt="${r.name}" width="64" height="52"><div><strong>${r.name} <em>$${r.price}</em></strong><p>${r.ingredients.map(i => ITEMS[i].name).join(' ＋ ')}</p><small>下鍋後按 F · 炒 ${r.cookTime} 秒</small></div></div>`;
+      return `<div class="recipe"><img class="dish-art" src="assets/${key}.svg" alt="${r.name}" width="64" height="52"><div><strong>${r.name} <em>$${r.price}</em></strong><p>${r.ingredients.map(i => ITEMS[i].name).join(' ＋ ')}</p><small>每份各需上述材料 · 最多 3 份<br>炒 1／2／3 份：${[1,1.4,1.8].map(n => +(r.cookTime*n).toFixed(1)).join("／")} 秒</small></div></div>`;
     }).join('');
     $('current-level').textContent = '單人料理遊戲 · ' + game.level.name;
     $('kitchen-title').textContent = game.level.name + ' · 今晚，你是總舖師';
@@ -104,8 +104,8 @@
     if (s.type === 'trash') return 'E 丟棄食材／清空餐盤';
     const w = game.woks[s.id];
     if (w.state === 'empty') return 'E 加入食材';
-    if (w.state === 'loading') return HotStirFry.recipeFor(w.ingredients, game.level.menu) ? 'F 開火炒菜' : 'E 繼續加料 · 空手按住 F 清空';
-    if (w.state === 'ready') return '拿空盤，按 E 盛裝！';
+    if (w.state === 'loading') return HotStirFry.recipeFor(w.ingredients, game.level.menu) ? `F 炒 ${portionsFor(w.ingredients)} 份 · E 加料（最多 3 份）` : game.missingIngredients(s.id) + ' · E 加料／空手按住 F 清空';
+    if (w.state === 'ready') return `剩 ${w.remaining} 份 · 拿空盤按 E 盛 1 份！`;
     if (w.state === 'burned') return '空手按住 F 清理燒焦炒鍋';
     return w.flipped ? '翻炒完成，等待起鍋' : 'F 翻炒 · 在進度 40%～85% 時操作';
   }
@@ -123,9 +123,9 @@
     $('wok-status').innerHTML = Object.entries(game.woks).map(([id, w], i) => {
       const dish = w.recipe ? RECIPES[w.recipe].name : '';
       let state = '空鍋 · 等待食材';
-      if (w.state === 'loading') state = HotStirFry.recipeFor(w.ingredients, game.level.menu) ? '材料齊了 · F 開火' : w.ingredients.map(i => ITEMS[i].name).join('＋');
-      if (w.state === 'cooking') { const p = w.elapsed/RECIPES[w.recipe].cookTime; state = `${dish} · ${Math.ceil(RECIPES[w.recipe].cookTime-w.elapsed)} 秒${w.flipped ? ' · 已翻炒' : p >= .4 && p <= .85 ? ' · F 翻炒！' : ''}`; }
-      if (w.state === 'ready') state = `${dish} · ${Math.ceil(8-w.readyTime)} 秒內盛裝！`;
+      if (w.state === 'loading') state = HotStirFry.recipeFor(w.ingredients, game.level.menu) ? `${game.missingIngredients(id)} · F 開火` : game.missingIngredients(id);
+      if (w.state === 'cooking') { const p = w.elapsed/cookDuration(w); state = `${dish} ×${w.portions} · ${Math.ceil(cookDuration(w)-w.elapsed)} 秒${w.flipped ? ' · 已翻炒' : p >= .4 && p <= .85 ? ' · F 翻炒！' : ''}`; }
+      if (w.state === 'ready') state = `${dish} · 剩 ${w.remaining} 份 · ${Math.ceil(8-w.readyTime)} 秒內盛裝！`;
       if (w.state === 'burned') state = '燒焦 · 空手按住 F 清鍋';
       return `<div class="wok-chip ${w.state}"><b>${i+1} 號鍋</b><span>${state}</span></div>`;
     }).join('');

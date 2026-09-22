@@ -2,9 +2,17 @@
 
 A 2D single-player cooking game inspired by Taiwan’s lively stir-fry restaurants. Prep ingredients, fire up the wok, and serve hungry customers through the dinner rush.
 
-Current version: 0.3.0
+Current version: 0.4.0
 
 單人 2D 俯視角熱炒店原型，使用原生 Canvas、JavaScript 與 CSS。所有場景與料理插圖均為原創 Canvas／SVG 繪圖，不依賴外部素材、套件或網路服務。
+
+## v0.4 同鍋多份料理
+
+- 同鍋可炒 1～3 份同一道菜，每份都需要完整的一組材料；開火前可繼續加料。
+- 材料數量不齊時會顯示預備份數及缺料數量，補齊後按 F 開火，開火後不能再加料。
+- 1／2／3 份炒製時間為原本的 1／1.4／1.8 倍，翻炒成功整鍋都有品質加成。
+- 每次拿空盤按 E 盛出 1 份，各自出餐、計價及回收餐盤，最後一份盛完才清空鍋子。
+- 剩餘料理共用炒熟後 8 秒的燒焦倒數，盛盤不重置時間。份數與倒數顯示於鍋況列。
 
 ## v0.3 美術更新
 

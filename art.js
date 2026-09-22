@@ -9,7 +9,7 @@
     floor: '#c9c6a5', floorAlt: '#d1cdb1', wood: '#c18e55'
   };
   function createRenderer(ctx, data) {
-    const { ITEMS, RECIPES } = data;
+    const { ITEMS, RECIPES, cookDuration } = data;
     const state = { clock: 0, effects: [], tosses: {}, gesture: null, tables: {} };
     function box(x, y, w, h, fill, radius = 0, stroke, lineWidth = 2) {
       ctx.beginPath(); ctx.roundRect(x, y, w, h, radius);
@@ -171,15 +171,16 @@
       else w.ingredients.forEach((id, i) => item(id, (i - (w.ingredients.length - 1) / 2) * 14, -2, .6));
       ctx.restore(); ctx.restore();
       oval(x - 19, y + 27, 4, 4, '#4e6658', P.ink, 1); line([[x - 19, y + 27], [x - 17, y + 24]], '#d9dec6', 1);
+      if (w.state === 'cooking') badge(`×${w.portions || 1}`, x + 30, y + 4, 34, '#f1e2a6', '#795332');
       label(s.id === 'wok' ? '01' : '02', x + 19, y + 27, 10, '#3d5546');
       if (hot) steam(x, y - 26);
       if (w.state === 'burned') { steam(x, y - 25, .75, true); badge('焦鍋 · 清理', x, y - 56, 98, '#c3b3a0', '#654e3e'); }
       if (w.state === 'cooking') {
-        const p = w.elapsed / RECIPES[w.recipe].cookTime;
+        const p = w.elapsed / cookDuration(w);
         bar(x, y - 47, p, '#e8bc63');
         if (p >= .4 && p <= .85 && !w.flipped) badge('F 翻炒', x, y - 65, 82, '#f5da8f', '#755735');
       }
-      if (w.state === 'ready') { bar(x, y - 47, 1 - w.readyTime / 8, w.readyTime > 4 ? '#d78758' : '#c3c982'); badge('拿盤盛裝', x, y - 65, 90, w.readyTime > 4 ? '#f0bf91' : '#f1e2a6', '#795332'); }
+      if (w.state === 'ready') { bar(x, y - 47, 1 - w.readyTime / 8, w.readyTime > 4 ? '#d78758' : '#c3c982'); badge(`剩 ${w.remaining || 1} 份`, x, y - 65, 90, w.readyTime > 4 ? '#f0bf91' : '#f1e2a6', '#795332'); }
       if (w.clearProgress > 0) bar(x, y - 47, w.clearProgress / 2, '#9ebcad');
     }
     function drawStation(s, game, target, chopping, active) {
