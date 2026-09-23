@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>rechao — 熱炒開店啦！｜單人料理小遊戲</title>
-  <link rel="stylesheet" href="style.css?v=0.7.0">
+  <link rel="stylesheet" href="style.css?v=0.8.0">
 </head>
 <body>
   <main class="app">
@@ -31,13 +31,14 @@
         <section class="recipe-panel"><div class="side-heading"><h2 id="menu-title">今晚菜單</h2><span id="menu-count">2 道拿手菜</span></div><div id="recipe-list"></div><div class="chef-note"><strong>主廚筆記</strong><p id="tip">站到工作站旁，看腳下的操作提示。按住 F 才能持續切料。</p></div></section>
       </aside>
     </div>
-    <footer><span>小小廚房，大大鍋氣。</span><span>原型 v0.7 · 香氣、醬料與果汁課 · 鍵盤操作</span></footer>
+    <footer><span>小小廚房，大大鍋氣。</span><span>原型 v0.8 · 成長模式與鍋氣音效 · 鍵盤操作</span></footer>
   </main>
   <div id="overlay" class="overlay">
     <section class="modal level-modal" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-      <button id="origin-open" class="text-button origin-open">源起 · 我的熱炒之旅</button><div class="modal-kicker">從備料開始，學會一桌好菜</div><h2 id="welcome-title">阿明師傅的學習筆記</h2><p class="intro">自由選課，照自己的步調練習；準備好了，再挑戰熱炒營業。</p>
+      <div class="welcome-links"><button id="origin-open" class="text-button origin-open">源起 · 我的熱炒之旅</button><button id="career-open" class="text-button origin-open">成長模式 · Alex 的打工日記</button></div><div class="modal-kicker">從備料開始，學會一桌好菜</div><h2 id="welcome-title">阿明師傅的學習筆記</h2><p class="intro">自由選課，照自己的步調練習；準備好了，再挑戰熱炒營業。</p>
       <div id="course-tabs" class="course-tabs" role="group" aria-label="課程分類"></div><p id="course-note" class="intro"></p><div id="level-list" class="level-list" role="group" aria-label="選擇關卡"></div>
       <div class="level-brief"><strong id="level-description"></strong><span id="level-goals"></span></div>
+      <div id="chef-picker" class="chef-picker hidden" role="group" aria-label="選擇上場主廚"></div>
       <div id="welcome-steps" class="welcome-steps"><div><b>01</b><strong>備好料</strong><span>E 取料，砧板上按住 F</span></div><div><b>02</b><strong>起鍋炒</strong><span>食材放鍋，F 開火與翻炒</span></div><div><b>03</b><strong>上好菜</strong><span>拿空盤盛裝，送到出餐口</span></div></div><button id="start" class="primary">開始第一晚開張 →</button><p class="modal-foot" id="level-timing">20 秒備料 · 3 分鐘營業 · 45 秒收尾</p>
     </section>
     <section class="modal hidden origin-modal" id="origin" role="dialog" aria-modal="true" aria-labelledby="origin-title">
@@ -47,9 +48,19 @@
       <div class="origin-controls"><button id="origin-prev" class="secondary">上一句</button><span id="origin-progress"></span><button id="origin-next" class="primary">下一句 →</button></div>
       <button id="origin-close" class="text-button">返回選關</button><p class="modal-foot">Enter／空白鍵／→ 下一句 · ← 上一句 · Esc 返回</p>
     </section>
+    <section class="modal hidden career-modal" id="career" role="dialog" aria-modal="true" aria-labelledby="career-title">
+      <div class="modal-kicker">RECHAO · CAREER</div><h2 id="career-title">Alex 的打工日記</h2><p id="career-week" class="career-week"></p>
+      <div id="career-status" class="career-status hidden"><div id="career-stats"></div></div>
+      <p id="career-message" class="career-message" aria-live="polite"></p>
+      <div id="career-body"></div>
+      <label id="career-name-field" class="career-name hidden">替這張卡取暱稱（最多 12 字）<input id="career-nickname" maxlength="12" autocomplete="off"></label>
+      <div id="career-card-actions" class="career-card-actions"></div>
+      <div class="career-links"><button id="career-close" class="text-button">返回選關（進度自動儲存）</button><button id="career-abandon" class="text-button">放棄這一輪</button></div>
+      <p class="modal-foot">Esc 返回選關</p>
+    </section>
     <section class="modal hidden" id="paused" role="dialog" aria-modal="true" aria-labelledby="pause-title"><div class="modal-kicker">休息一下</div><h2 id="pause-title">爐火與時間，都幫你暫停了。</h2><p class="intro">準備好了，就繼續出菜。</p><button id="resume" class="primary">繼續營業 →</button><button id="restart-pause" class="secondary">重新開始這一晚</button><button id="choose-pause" class="text-button">結束本局，返回選關</button></section>
     <section class="modal hidden" id="results" role="dialog" aria-modal="true" aria-labelledby="result-title"><div class="modal-kicker" id="result-level">辛苦了，主廚</div><div id="stars" class="stars">★★★</div><h2 id="result-title">今晚打烊啦！</h2><p id="result-message" class="intro"></p><div id="result-stats"></div><p id="best-record"></p><button id="next-level" class="primary">挑戰下一晚 →</button><button id="restart" class="secondary">再開一晚</button><button id="choose-results" class="text-button">返回選關</button></section>
   </div>
-  <script src="game-core.js?v=0.7.0"></script><script src="progress.js?v=0.7.0"></script><script src="movement.js?v=0.7.0"></script><script src="art.js?v=0.7.0"></script><script src="game.js?v=0.7.0"></script>
+  <script src="game-core.js?v=0.8.0"></script><script src="progress.js?v=0.8.0"></script><script src="career.js?v=0.8.0"></script><script src="movement.js?v=0.8.0"></script><script src="audio.js?v=0.8.0"></script><script src="art.js?v=0.8.0"></script><script src="game.js?v=0.8.0"></script>
 </body>
 </html>
