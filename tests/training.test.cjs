@@ -1,6 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {Kitchen}=require('../game-core.js');
+const {Kitchen, MIX_TIME}=require('../game-core.js');
 test('prep course stays untimed, validates food, retains excess, completes and resets',()=>{
  const g=new Kitchen(Math.random,'prep-school');g.tick(500);g.startService();g.addOrder();
  assert.equal(g.phase,'training');assert.equal(g.time,0);assert.equal(g.orders.length,0);
@@ -11,4 +11,62 @@ test('prep course stays untimed, validates food, retains excess, completes and r
  g.held={id:'choppedScallion',count:3};g.paused=true;g.interact('serve');assert.equal(g.served,3);
  g.paused=false;g.interact('serve');assert.equal(g.phase,'ended');assert.equal(g.held.count,1);assert.equal(g.served,5);
  g.interact('serve');assert.equal(g.served,5);g.reset();assert.deepEqual(g.delivered,{});
+});
+test('spice course stays untimed, chops scallion only, retains excess, completes and resets',()=>{
+ const g=new Kitchen(Math.random,'spice-school');g.tick(500);g.startService();g.addOrder();
+ assert.equal(g.level.course,'spices');assert.equal(g.phase,'training');assert.equal(g.time,0);assert.equal(g.orders.length,0);
+ assert.ok(!g.stations.some(s=>['wok','plates'].includes(s.type)));
+ assert.deepEqual(g.stations.map(s=>s.id).sort(),['basil','board','counter','scallion','serve','trash']);
+ g.interact('scallion');g.interact('serve');assert.equal(g.held.id,'scallion');assert.equal(g.served,0);
+ g.interact('trash');g.interact('basil');g.interact('board');assert.equal(g.held.id,'basil');assert.match(g.events.at(-1).text,/九層塔不用切/);
+ g.interact('serve');assert.equal(g.delivered.basil,1);g.held={id:'sauce'};g.interact('serve');assert.equal(g.held.id,'sauce');
+ g.interact('trash');g.interact('scallion');g.interact('board');g.interact('scallion');g.interact('board');g.interact('scallion');g.interact('board');
+ g.tick(3.61,'board');g.interact('board');assert.equal(g.held.id,'choppedScallion');assert.equal(g.held.count,3);
+ g.paused=true;g.interact('serve');assert.equal(g.served,1);
+ g.paused=false;g.interact('serve');assert.equal(g.delivered.choppedScallion,2);assert.equal(g.held.count,1);assert.equal(g.served,3);
+ g.held={id:'basil',count:3};g.interact('serve');assert.equal(g.phase,'ended');assert.equal(g.delivered.basil,3);assert.equal(g.held.count,1);assert.equal(g.served,5);
+ g.interact('serve');assert.equal(g.served,5);g.reset();assert.deepEqual(g.delivered,{});assert.equal(g.phase,'training');
+});
+test('sauce course stays untimed, counts bottles, retains excess, completes and resets',()=>{
+ const g=new Kitchen(Math.random,'sauce-school');g.tick(500);g.startService();g.addOrder();
+ assert.equal(g.level.course,'sauces');assert.equal(g.phase,'training');assert.equal(g.time,0);assert.equal(g.orders.length,0);
+ assert.ok(!g.stations.some(s=>['wok','plates','board'].includes(s.type)));
+ assert.deepEqual(g.stations.map(s=>s.id).sort(),['counter','sauce','serve','soy','trash']);
+ const friday=new Kitchen(Math.random,'friday');assert.equal(friday.stations.some(s=>s.supply==='soy'),false);
+ g.interact('soy');g.interact('counter');g.held={id:'sauce'};g.interact('counter');assert.equal(g.held.id,'soy');assert.equal(g.stations.find(s=>s.id==='counter').item.id,'sauce');
+ g.interact('trash');g.interact('counter');g.interact('serve');assert.equal(g.delivered.sauce,1);
+ g.held={id:'basil'};g.interact('serve');assert.equal(g.held.id,'basil');g.interact('trash');
+ g.stations.push({id:'board',type:'board',item:null,progress:0,x:4,y:4,name:'切料砧板'});
+ g.held={id:'soy'};g.interact('board');assert.equal(g.held.id,'soy');assert.match(g.events.at(-1).text,/醬料不用切/);
+ g.held={id:'sauce'};g.interact('board');assert.equal(g.held.id,'sauce');assert.match(g.events.at(-1).text,/醬料不用切/);
+ g.held={id:'sauce',count:3};g.paused=true;g.interact('serve');assert.equal(g.served,1);
+ g.paused=false;g.interact('serve');assert.equal(g.delivered.sauce,2);assert.equal(g.held.count,2);assert.equal(g.served,2);
+ g.held={id:'soy',count:4};g.interact('serve');assert.equal(g.phase,'ended');assert.equal(g.delivered.soy,3);assert.equal(g.held.count,1);assert.equal(g.served,5);
+ g.interact('serve');assert.equal(g.served,5);g.reset();assert.deepEqual(g.delivered,{});assert.equal(g.stations.some(s=>s.type==='board'),false);
+});
+test('juice course stays untimed, mixes one cup, retains excess, completes and resets',()=>{
+ const g=new Kitchen(Math.random,'juice-school');g.tick(500);g.startService();g.addOrder();
+ assert.equal(g.level.course,'juice');assert.equal(g.phase,'training');assert.equal(g.time,0);assert.equal(g.orders.length,0);
+ assert.ok(!g.stations.some(s=>['wok','plates','board'].includes(s.type)));
+ assert.deepEqual(g.stations.map(s=>s.id).sort(),['counter','ice','juice-bar','lemon','plum','serve','syrup','trash']);
+ const friday=new Kitchen(Math.random,'friday');assert.equal(friday.stations.some(s=>['lemon','syrup','ice','plum','juice-bar'].includes(s.id)),false);
+ friday.held={id:'lemon'};friday.interact('wok');assert.equal(friday.held.id,'lemon');
+ const bar=()=>g.stations.find(s=>s.id==='juice-bar');
+ g.interact('lemon');g.interact('juice-bar');g.interact('plum');g.interact('juice-bar');
+ assert.equal(g.held.id,'plum');assert.deepEqual(bar().ingredients,['lemon']);assert.match(g.events.at(-1).text,/調不出果汁/);
+ g.interact('trash');g.interact('juice-bar');assert.equal(g.held.id,'lemon');g.interact('trash');assert.deepEqual(bar().ingredients,[]);
+ g.interact('lemon');g.interact('juice-bar');g.held={id:'lemon'};g.interact('juice-bar');assert.equal(g.held.id,'lemon');g.interact('trash');
+ g.held={id:'syrup',count:2};g.interact('juice-bar');assert.equal(g.held.count,2);g.interact('trash');
+ g.interact('syrup');g.interact('juice-bar');g.interact('ice');g.interact('juice-bar');assert.equal(bar().ingredients.length,3);
+ g.tick(MIX_TIME-.1,'juice-bar');assert.equal(bar().item,null);g.tick(.1);assert.equal(bar().item,null);
+ g.paused=true;g.tick(MIX_TIME,'juice-bar');assert.equal(bar().item,null);g.paused=false;
+ g.tick(.11,'juice-bar');assert.equal(bar().item.id,'lemonJuice');assert.deepEqual(bar().ingredients,[]);
+ g.interact('lemon');g.interact('juice-bar');assert.equal(g.held.id,'lemon');g.interact('trash');
+ g.interact('juice-bar');g.interact('counter');g.interact('counter');g.interact('serve');assert.equal(g.delivered.lemonJuice,1);assert.equal(g.served,1);
+ for (const id of ['plum','ice','syrup']) { g.interact(id); g.interact('juice-bar'); }
+ g.tick(MIX_TIME+.01,'juice-bar');g.interact('juice-bar');assert.equal(g.held.id,'plumJuice');
+ g.paused=true;g.interact('serve');assert.equal(g.served,1);g.paused=false;g.interact('serve');assert.equal(g.delivered.plumJuice,1);assert.equal(g.served,2);
+ g.held={id:'sauce'};g.interact('serve');assert.equal(g.held.id,'sauce');g.interact('trash');
+ g.held={id:'lemonJuice',count:3};g.interact('serve');assert.equal(g.phase,'ended');assert.equal(g.delivered.lemonJuice,2);assert.equal(g.held.count,2);assert.equal(g.served,3);
+ g.interact('serve');assert.equal(g.served,3);g.reset();assert.deepEqual(g.delivered,{});assert.equal(g.phase,'training');assert.deepEqual(g.stations.find(s=>s.id==='juice-bar').ingredients,[]);
 });

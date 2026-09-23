@@ -55,10 +55,10 @@ test('levels restrict supplies, menus, order limits and provide all recipes fair
   for (const level of LEVELS) {
     const g = new Kitchen(() => .5, level.id);
     assert.equal(Object.keys(g.woks).length, level.woks);
+    if (level.mode === 'training') { g.addOrder(); assert.equal(g.orders.length, 0); assert.ok(!g.stations.some(s => s.type === 'wok' || s.type === 'plates')); continue; }
     for (const s of g.stations.filter(s => s.type === 'supply')) {
       assert.ok(level.menu.some(key => RECIPES[key].ingredients.includes(s.supply) || RECIPES[key].ingredients.includes(ITEMS[s.supply].processed)));
     }
-    if (level.mode === 'training') { g.addOrder(); assert.equal(g.orders.length, 0); continue; }
     const recipes = new Set();
     for (let i=0; i<level.menu.length; i++) { g.addOrder(); recipes.add(g.orders[0].recipe); g.orders = []; }
     assert.deepEqual([...recipes].sort(), [...level.menu].sort());
@@ -84,7 +84,7 @@ test('star thresholds are level specific and exact', () => {
 
 test('progress persists per level, keeps best scores and tolerates old or malformed storage', () => {
   const data=new Map([['hot-stir-fry-best','300']]);const storage={getItem:k=>data.get(k),setItem:(k,v)=>data.set(k,v)};
-  let p=new Progress(storage);assert.equal(p.records.opening.revenue,300);p.record('rush',800,2);p.record('rush',100,0);
+  let p=new Progress(storage);assert.equal(p.records.opening.revenue,300);assert.equal(p.records['prep-school'].runs,0);assert.equal(p.records['spice-school'].runs,0);assert.equal(p.records['sauce-school'].runs,0);assert.equal(p.records['juice-school'].runs,0);p.record('rush',800,2);p.record('rush',100,0);
   p=new Progress(storage);assert.deepEqual(p.records.rush,{revenue:800,stars:2,runs:2});assert.equal(p.records.friday.revenue,0);
   data.set(KEY,'{broken');p=new Progress(storage);assert.equal(p.records.rush.runs,0);
   data.set(KEY,JSON.stringify({friday:{revenue:-4,stars:99,runs:'oops'}}));p=new Progress(storage);assert.deepEqual(p.records.friday,{revenue:0,stars:3,runs:0});

@@ -89,9 +89,10 @@ test('origin dialogue advances, goes back, exits and replays without starting a 
 test('notebook categories, training completion and next service keep separate records',()=>{
  const ui=runtime();
  assert.match(ui.nodes['level-list'].innerHTML,/備料課/);
+ assert.equal(ui.nodes['course-tabs'].innerHTML.includes('籌備中'),false);
  ui.nodes['course-tabs'].onclick({target:{closest:()=>({dataset:{course:'juice'}})}});
- assert.equal(ui.nodes.start.disabled,true);assert.equal(ui.nodes['level-list'].innerHTML,'');
- ui.nodes.start.onclick();ui.frame();assert.equal(ui.game.phase,'training');
+ assert.equal(ui.nodes.start.disabled,false);assert.match(ui.nodes['level-list'].innerHTML,/果汁課/);
+ ui.nodes.start.onclick();ui.frame();assert.equal(ui.game.level.id,'juice-school');assert.equal(ui.game.phase,'training');
  ui.nodes['course-tabs'].onclick({target:{closest:()=>({dataset:{course:'prep'}})}});
  ui.nodes.start.onclick();ui.frame();assert.equal(ui.nodes.clock.textContent,'不限時');
  ui.game.held={id:'choppedGreens',count:3};ui.game.interact('serve');
