@@ -8,6 +8,10 @@
   const game = new Kitchen();
   const art = window.HotStirFryArt.createRenderer(ctx, window.HotStirFry);
   const keys = new Set();
+  const keyboardKeys = new Set();
+  const pointerHolds = new Map();
+  const TOUCH_MAP = { 'touch-up': 'w', 'touch-left': 'a', 'touch-down': 's', 'touch-right': 'd', 'touch-e': 'e', 'touch-f': 'f' };
+  let sawTouch = false, touchActive = false;
   let player = createPlayer(), running = false, target = null;
   let last = performance.now(), hudTimer = 0, toastUntil = 0, muted = false, audio = null, ended = false;
   let storage;
@@ -45,7 +49,7 @@
   function nextOrigin() { if (originIndex < originLines.length - 1) { originIndex++; renderOrigin(); } else closeOrigin(); }
   $('origin-open').onclick = () => {
     if (running) return;
-    originOpen = true; originIndex = 0; keys.clear();
+    originOpen = true; originIndex = 0; clearInput();
     $('welcome').classList.add('hidden'); $('origin').classList.remove('hidden'); renderOrigin(); $('origin-next').focus();
   };
   $('origin-close').onclick = closeOrigin;
@@ -74,7 +78,8 @@
     const level = LEVELS.find(l => l.id === selectedLevel);
     $('level-description').textContent = level.description;
     $('level-goals').textContent = level.stars.map((goal, i) => `${i+1} 星 $${goal}`).join('　／　');
-    $('level-timing').textContent = `${level.prepTime} 秒備料 · ${level.serviceTime/60} 分鐘營業 · 最多 ${level.closingTime} 秒收尾 · 單人鍵盤操作`;
+    const inputLabel = document.body.classList.contains('touch-active') ? '鍵盤或觸控' : '單人鍵盤操作';
+    $('level-timing').textContent = `${level.prepTime} 秒備料 · ${level.serviceTime/60} 分鐘營業 · 最多 ${level.closingTime} 秒收尾 · ${inputLabel}`;
     $('start').textContent = `開始「${level.name}」 →`;
     if (level.mode === 'training') { $('level-goals').textContent = '目標：' + goalText(level); $('level-timing').textContent = level.timing; }
 
@@ -107,9 +112,9 @@
   function showSelection() {
     selectedCourse = courseFor(game.level);
 
-    running = false; ended = false; keys.clear(); target = null; game.reset(selectedLevel); art.reset();
+    running = false; ended = false; clearInput(); target = null; game.reset(selectedLevel); art.reset();
     player = createPlayer();
-    $('paused').classList.add('hidden'); $('results').classList.add('hidden'); $('welcome').classList.remove('hidden'); $('overlay').classList.remove('hidden'); $('pause').disabled = true; $('pause').textContent = '暫停 Esc';
+    $('paused').classList.add('hidden'); $('results').classList.add('hidden'); $('welcome').classList.remove('hidden'); $('overlay').classList.remove('hidden'); updatePauseLabel(); syncPlayChrome();
     $('toast').textContent = ''; $('toast').classList.remove('show'); toastUntil = 0;
     renderLevelSelect(); renderMenu(); updateHUD(); $('start').focus();
   }
@@ -122,16 +127,16 @@
   function start() {
     if (!LEVELS.some(l => courseFor(l) === selectedCourse)) return;
     try { audio ||= new (window.AudioContext || window.webkitAudioContext)(); audio.resume().catch(() => {}); } catch (_) { /* Audio is optional. */ }
-    game.reset(selectedLevel); art.reset(); player = createPlayer(); keys.clear(); running = true; ended = false; target = null;
-    $('overlay').classList.add('hidden'); $('pause').disabled = false; $('pause').textContent = '暫停 Esc'; last = performance.now();
+    game.reset(selectedLevel); art.reset(); player = createPlayer(); clearInput(); running = true; ended = false; target = null;
+    $('overlay').classList.add('hidden'); updatePauseLabel(); syncPlayChrome(); last = performance.now();
     canvas.focus(); renderMenu();
     showToast(game.level.mode === 'training' ? game.level.toast : game.level.woks === 1 ? '先去左上方青菜箱按 E 拿菜，再到砧板備料。' : `${game.level.name}：兩口鍋各自計時，先備好料再開火。`, 'done'); updateHUD();
   }
   function pause(force) {
     if (!running || ended) return;
-    game.paused = typeof force === 'boolean' ? force : !game.paused; keys.clear();
+    game.paused = typeof force === 'boolean' ? force : !game.paused; clearInput();
     $('overlay').classList.toggle('hidden', !game.paused); $('welcome').classList.add('hidden'); $('results').classList.add('hidden'); $('paused').classList.remove('hidden');
-    $('pause').textContent = game.paused ? '繼續 Esc' : '暫停 Esc';
+    updatePauseLabel(); syncPlayChrome();
     if (game.paused) $('resume').focus(); else canvas.focus();
   }
   $('start').onclick = start; $('restart').onclick = start; $('restart-pause').onclick = start;
@@ -140,6 +145,114 @@
   $('next-level').onclick = () => { const next = nextLevel(); if (next) { selectedLevel = next.id; selectedCourse = courseFor(next); start(); } };
   $('open-early').onclick = () => { if (running && !game.paused) { game.startService(); drainEvents(); updateHUD(); } };
   $('sound').onclick = () => { muted = !muted; $('sound').textContent = '音效 ' + (muted ? '關' : '開'); };
+  function syncInputKeys() {
+    const live = new Set(keyboardKeys);
+    for (const hold of pointerHolds.values()) live.add(hold.key);
+    for (const key of keys) if (!live.has(key)) keys.delete(key);
+    for (const key of live) keys.add(key);
+  }
+  function paintHold(button, on) {
+    button.classList.toggle('held', on);
+    button.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  function pointerOn(button) {
+    for (const hold of pointerHolds.values()) if (hold.button === button) return true;
+    return false;
+  }
+  function clearInput() {
+    keyboardKeys.clear();
+    for (const hold of pointerHolds.values()) paintHold(hold.button, false);
+    pointerHolds.clear();
+    keys.clear();
+  }
+  function pressAction(key) {
+    if (!running || game.paused || ended || !target || (key !== 'e' && key !== 'f')) return;
+    const before = art.snapshot(game);
+    if (key === 'e') game.interact(target.id); else game.action(target.id);
+    art.action(target, game, before); drainEvents(); updateHUD();
+  }
+  function controlButtonFrom(event) {
+    const node = event.target && event.target.closest ? event.target.closest('button') : null;
+    return node && TOUCH_MAP[node.id] ? node : null;
+  }
+  function buttonAt(event) {
+    const hit = document.elementFromPoint?.(event.clientX, event.clientY);
+    const node = hit && hit.closest ? hit.closest('button') : null;
+    return node && TOUCH_MAP[node.id] ? node : null;
+  }
+  function assignPointer(pointerId, button) {
+    const prev = pointerHolds.get(pointerId);
+    if ((prev?.button || null) === (button || null)) return;
+    const nextKey = button ? TOUCH_MAP[button.id] : null;
+    const prevButton = prev?.button || null;
+    if (nextKey) pointerHolds.set(pointerId, { key: nextKey, button });
+    else pointerHolds.delete(pointerId);
+    if (prevButton && !pointerOn(prevButton)) paintHold(prevButton, false);
+    if (button) paintHold(button, true);
+    const wasHeld = !!nextKey && keys.has(nextKey);
+    syncInputKeys();
+    if (nextKey && !wasHeld) pressAction(nextKey);
+  }
+  const touchRoot = $('touch-controls');
+  touchRoot.addEventListener('pointerdown', event => {
+    const button = controlButtonFrom(event);
+    if (!button || (event.button != null && event.button !== 0)) return;
+    event.preventDefault();
+    try { touchRoot.setPointerCapture(event.pointerId); } catch (_) { /* Capture is optional when the pointer already ended. */ }
+    assignPointer(event.pointerId, button);
+  });
+  touchRoot.addEventListener('pointermove', event => {
+    if (!pointerHolds.has(event.pointerId)) return;
+    assignPointer(event.pointerId, buttonAt(event));
+  });
+  function releasePointer(event) {
+    if (!pointerHolds.has(event.pointerId)) return;
+    assignPointer(event.pointerId, null);
+  }
+  touchRoot.addEventListener('pointerup', releasePointer);
+  touchRoot.addEventListener('pointercancel', releasePointer);
+  touchRoot.addEventListener('contextmenu', event => event.preventDefault());
+  touchRoot.addEventListener('touchstart', event => event.preventDefault(), { passive: false });
+  canvas.addEventListener('touchstart', event => { if (running && !game.paused && !ended) event.preventDefault(); }, { passive: false });
+  function syncPlayChrome() { document.body.classList.toggle('playing', running && !game.paused && !ended); }
+  function updatePauseLabel() {
+    const esc = document.body.classList.contains('touch-active') ? '' : ' Esc';
+    $('pause').disabled = !running || ended;
+    $('pause').textContent = (!running || ended || !game.paused ? '暫停' : '繼續') + esc;
+  }
+  function applyTouchMode(on) {
+    touchActive = !!on;
+    document.body.classList.toggle('touch-active', touchActive);
+    touchRoot.hidden = !touchActive;
+    canvas.setAttribute('aria-label', touchActive
+      ? '台灣巷口熱炒店。左下方向鍵移動，輕點 E 拿放，按住 F 切料、炒菜、清鍋或調果汁。'
+      : '台灣巷口熱炒店，左側操作廚房、右側用餐區。使用 WASD 移動、E 拿放、按住 F 料理');
+    $('origin-foot').textContent = touchActive ? '點按下方按鈕逐句閱讀' : 'Enter／空白鍵／→ 下一句 · ← 上一句 · Esc 返回';
+    updatePauseLabel();
+    renderLevelSelect();
+  }
+  function wantsTouch() {
+    if (sawTouch) return true;
+    const nav = window.navigator;
+    if (nav && nav.maxTouchPoints > 0) return true;
+    if (typeof window.matchMedia === 'function') {
+      if (window.matchMedia('(pointer: coarse)').matches) return true;
+      if (window.matchMedia('(max-width: 820px)').matches) return true;
+    }
+    return false;
+  }
+  addEventListener('pointerdown', event => {
+    if (event.pointerType === 'touch' || event.pointerType === 'pen') { sawTouch = true; if (!touchActive) applyTouchMode(true); }
+  });
+  addEventListener('resize', () => { if (wantsTouch() !== touchActive) applyTouchMode(wantsTouch()); });
+  document.addEventListener('touchmove', event => {
+    if (!running || game.paused || ended) return;
+    const node = event.target;
+    if (!node || !node.closest) return;
+    if (node.closest('#overlay') || node.closest('aside')) return;
+    if (node.closest('.kitchen-panel') || node.closest('#touch-controls') || node.closest('.masthead') || node.closest('.dashboard')) event.preventDefault();
+  }, { passive: false });
+  document.addEventListener('gesturestart', event => { if (running && !game.paused && !ended) event.preventDefault(); });
   addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
     if (originOpen) {
@@ -158,14 +271,12 @@
     if (running && !game.paused && !ended && ['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key)) e.preventDefault();
     if (key === 'escape' && !e.repeat) { pause(); return; }
     if (!running || game.paused || ended) return;
-    keys.add(key);
-    if (!e.repeat && target && (key === 'e' || key === 'f')) {
-      const before = art.snapshot(game);
-      if (key === 'e') game.interact(target.id); else game.action(target.id);
-      art.action(target, game, before); drainEvents(); updateHUD();
-    }
+    const wasHeld = keys.has(key);
+    keyboardKeys.add(key);
+    syncInputKeys();
+    if (!e.repeat && !wasHeld && (key === 'e' || key === 'f')) pressAction(key);
   });
-  addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+  addEventListener('keyup', e => { keyboardKeys.delete(e.key.toLowerCase()); syncInputKeys(); });
   addEventListener('blur', () => pause(true));
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
   function move(dt) {
@@ -219,7 +330,7 @@
     }
   }
   function finish() {
-    ended = true; keys.clear(); $('pause').disabled = true;
+    ended = true; clearInput(); updatePauseLabel(); syncPlayChrome();
     const stars = game.level.mode === 'training' ? 3 : starCount(game.revenue, game.level);
     const record = progress.record(game.level.id, game.revenue, stars);
     $('stars').textContent = '★'.repeat(stars) + '☆'.repeat(3-stars);
@@ -249,5 +360,6 @@
   }
   canvas.tabIndex = 0;
   canvas.width = window.HotStirFryArt.WIDTH; canvas.height = window.HotStirFryArt.HEIGHT;
-  renderLevelSelect();renderMenu();updateHUD();requestAnimationFrame(frame);
+  applyTouchMode(wantsTouch());
+  renderMenu(); updateHUD(); requestAnimationFrame(frame);
 })();
