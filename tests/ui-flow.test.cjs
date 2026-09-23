@@ -113,6 +113,7 @@ function playWeeks(ui) {
     const run = careerData(ui).run;
     if (run.pending?.type === 'exam') return run;
     if (run.pending?.type === 'event') ui.click('career-body', { career: 'choice', value: '0' });
+    else if (run.pending?.type === 'quiz') { ui.click('career-body', { career: 'quiz' }); ui.game.finish(); ui.frame(); ui.nodes['next-level'].onclick(); }
     else ui.click('career-body', { career: 'action', value: run.stamina < 40 ? 'rest' : 'heat' });
   }
   throw new Error('career never reached the exam');
@@ -206,4 +207,59 @@ test('discarding a card and abandoning a run both ask twice', () => {
   again.click('career-card-actions', { career: 'discard' }); assert.ok(careerData(again).run);
   again.click('career-card-actions', { career: 'discard' }); assert.equal(careerData(again).run, null); assert.equal(careerData(again).cards.length, 0);
   again.press('Escape'); assert.equal(again.nodes.career.classList.contains('hidden'), true); assert.equal(again.nodes.welcome.classList.contains('hidden'), false);
+});
+
+function quizRun(records, week = 3) {
+  const stats = { knife: 20, heat: 0, season: 0, charm: 0, control: 0 };
+  records.set(career.KEY, JSON.stringify({ run: { id: 'run-q', week, stamina: 60, injured: 0, stats, usedEvents: [], log: [], pending: { type: 'quiz' } } }));
+  return runtime(records);
+}
+function deliverAll(game) { for (const g of game.level.goals) { game.held = { id: g.id, count: g.count }; game.serve(); } }
+
+test('a quiz is timed, applies the trainee stats and settles once without a lesson record', () => {
+  const records = new Map(), ui = quizRun(records);
+  ui.nodes['career-open'].onclick();
+  assert.match(ui.nodes['career-body'].innerHTML, /刀工小考[\s\S]*開店前的備料課/);
+  ui.click('career-body', { career: 'quiz' });
+  assert.equal(ui.game.level.id, 'prep-school'); assert.equal(ui.game.mods.chopTime, core.getChefModifiers({ stats: { knife: 20 } }).chopTime);
+  ui.frame(); assert.equal(ui.nodes['phase-label'].textContent, '刀工小考'); assert.equal(ui.nodes.clock.textContent, '01:30');
+  ui.game.clock = 30; deliverAll(ui.game); ui.frame();
+  assert.equal(ui.nodes.stars.textContent, '★★★'); assert.match(ui.nodes['result-message'].textContent, /刀工 \+6/);
+  assert.equal(ui.nodes.restart.classList.contains('hidden'), true); assert.equal(ui.records.get(progress.KEY), undefined, 'no lesson record');
+  for (let i = 0; i < 5; i++) ui.frame();
+  const run = careerData(ui).run;
+  assert.equal(run.stats.knife, 26); assert.equal(run.week, 4); assert.equal(run.pending, null);
+  ui.nodes['next-level'].onclick();
+  assert.equal(ui.nodes.career.classList.contains('hidden'), false); assert.equal(ui.nodes['career-week'].textContent, '第 4 / 8 週');
+});
+
+test('running out of time ends the quiz with no stars, and the run continues', () => {
+  const records = new Map(), ui = quizRun(records, 6);
+  ui.nodes['career-open'].onclick(); ui.click('career-body', { career: 'quiz' });
+  assert.equal(ui.game.level.id, 'juice-school');
+  ui.game.clock = 149.99; ui.frame();
+  assert.equal(ui.nodes.results.classList.contains('hidden'), false);
+  assert.equal(ui.nodes.stars.textContent, '☆☆☆'); assert.match(ui.nodes['result-message'].textContent, /時間到/);
+  const run = careerData(ui).run; assert.equal(run.week, 7); assert.equal(run.stats.season, 0);
+});
+
+test('leaving a quiz early keeps it pending for another try', () => {
+  const records = new Map(), ui = quizRun(records);
+  ui.nodes['career-open'].onclick(); ui.click('career-body', { career: 'quiz' }); ui.frame();
+  ui.press('Escape'); ui.nodes['choose-pause'].onclick();
+  assert.equal(careerData(ui).run.pending.type, 'quiz');
+  ui.nodes['career-open'].onclick(); assert.match(ui.nodes['career-body'].innerHTML, /data-career="quiz"/);
+});
+
+test('level cards show the chef-card record while a card is selected', () => {
+  const records = new Map();
+  records.set(progress.KEY, JSON.stringify({ rush: { revenue: 300, stars: 0, runs: 1 } }));
+  records.set(career.KEY, JSON.stringify({ cards: [{ id: 'c1', nickname: '阿艾', title: '二廚', stats: {} }], records: { rush: { revenue: 950, stars: 3, runs: 1, chef: { nickname: '阿艾', title: '二廚', stats: {} } } } }));
+  const ui = runtime(records); ui.select('rush');
+  assert.match(ui.nodes['level-list'].innerHTML, /最佳營收 \$300/); assert.doesNotMatch(ui.nodes['level-list'].innerHTML, /主廚卡紀錄/);
+  ui.click('chef-picker', { chef: 'c1' });
+  const cards = ui.nodes['level-list'].innerHTML;
+  assert.match(cards, /主廚卡紀錄 \$950（阿艾）/); assert.match(cards, /最佳 3 星/); assert.match(cards, /主廚卡紀錄 · 尚未挑戰/);
+  assert.doesNotMatch(cards, /最佳營收 \$300/);
+  ui.click('chef-picker', { chef: '' }); assert.match(ui.nodes['level-list'].innerHTML, /最佳營收 \$300/);
 });
