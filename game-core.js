@@ -5,7 +5,7 @@
     scallion: { name: '蔥', kind: 'scallion', processed: 'choppedScallion' }, choppedScallion: { name: '切好的蔥', kind: 'scallion', chopped: true },
     beef: { name: '牛肉', kind: 'beef', processed: 'choppedBeef' }, choppedBeef: { name: '牛肉片', kind: 'beef', chopped: true },
     chicken: { name: '雞肉', kind: 'chicken', processed: 'choppedChicken' }, choppedChicken: { name: '雞肉塊', kind: 'chicken', chopped: true },
-    basil: { name: '九層塔', kind: 'basil' }, sauce: { name: '三杯醬', kind: 'sauce' },
+    basil: { name: '九層塔', kind: 'basil', boardMessage: '九層塔不用切，直接交給師傅。' }, sauce: { name: '三杯醬', kind: 'sauce' },
     egg: { name: '雞蛋', kind: 'egg' }, rice: { name: '白飯', kind: 'rice' }, plate: { name: '乾淨餐盤', kind: 'plate' },
     greensDish: { name: '清炒青菜', kind: 'dish', recipe: 'greens' }, riceDish: { name: '黃金蛋炒飯', kind: 'dish', recipe: 'rice' },
     beefDish: { name: '蔥爆牛肉', kind: 'dish', recipe: 'beef' }, chickenDish: { name: '三杯雞', kind: 'dish', recipe: 'chicken' }
@@ -37,6 +37,17 @@
     phaseLabel: '備料練習', phaseNote: '阿明：不趕時間，先認識食材與砧板。', ordersTitle: '備料清單', ordersSubtitle: '切好後交到右側驗收檯，不需要盤子。',
     resultTitle: '備料課完成', resultMessage: '阿明：食材都備好了！接下來可以挑戰第一晚開張。',
     reject: '阿明：請交切好的青菜或蔥，生食材要先到砧板處理。'
+  }));
+  LEVELS.push(lesson({
+    id: 'spice-school', course: 'spices', name: '香氣提味課', subtitle: '哪種香料要切，哪種不用', description: '阿明：蔥要切碎才香，九層塔整把交就好。切錯了沒關係，丟掉再拿。',
+    stations: ['scallion', 'basil', 'board', 'counter', 'serve', 'trash'], goals: [{ id: 'choppedScallion', count: 2 }, { id: 'basil', count: 3 }],
+    card: '不限時 · 切蔥、九層塔直接交', timing: '不限時 · 無客人催單 · 完成清單即可過關',
+    toast: '阿明：蔥放砧板按住 F；九層塔不用切，直接交給師傅！',
+    steps: '① 蔥放到砧板，空手按住 F 切好，最多 3 份。<br>② 九層塔不用切，直接拿到驗收檯。<br>③ 九層塔放上砧板會被退回。備料檯可以暫存或交換。',
+    tip: '九層塔不用切，直接交給師傅。生蔥要先切好才算數。',
+    phaseLabel: '香氣練習', phaseNote: '阿明：先分辨哪種香氣要切、哪種可以直接交。', ordersTitle: '香氣清單',
+    resultTitle: '香氣提味課完成', resultMessage: '阿明：香氣都備好了！接下來可以挑戰第一晚開張。',
+    reject: '阿明：請交切好的蔥或九層塔。生蔥要先切，九層塔不用切。'
   }));
   const STATIONS = [
     { id: 'greens', type: 'supply', supply: 'greens', x: 1, y: 1, name: '青菜箱' },
