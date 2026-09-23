@@ -151,5 +151,9 @@ aside { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c6ceba transp
 .chef-picker button small { font-size: 10px; color: #968664; }
 .chef-picker button.selected { background: #295747; color: #fff9ea; }
 .chef-picker button.selected small { color: #e8d9ae; }
+.copy-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin: -8px 0 16px; }
+.copy-row .small-action { width: auto; margin: 0; padding: 9px 16px; }
+#copy-status { font-size: 11px; color: #65815c; }
+.copy-fallback { display: block; width: 100%; margin: 0 0 16px; padding: 10px; font: 11px/1.7 monospace; color: var(--ink); background: #fffdf5; border: 1px solid #d6dacd; border-radius: 8px; resize: vertical; }
 .chef-picker p { flex-basis: 100%; margin: 2px 0 0; font-size: 11px; color: #968664; }
 @media (max-width: 520px) { .career-modal { padding: 18px 16px; } .stat-bars, .career-actions, .career-choices, .career-slots { grid-template-columns: 1fr; } }

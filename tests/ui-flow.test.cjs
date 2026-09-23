@@ -12,7 +12,7 @@ const career = require('../career.js');
 const art = require('../art.js');
 const audio = require('../audio.js');
 
-function runtime(records = new Map()) {
+function runtime(records = new Map(), extra = {}) {
   const nodes = {}, events = {};
   let frame, now = 0, game, player;
   const context2d = new Proxy({}, { get: (target, key) => target[key] || (() => {}), set: (target, key, value) => (target[key] = value, true) });
@@ -35,6 +35,7 @@ function runtime(records = new Map()) {
     HotStirFryArt: art,
     HotStirFryAudio: audio,
   };
+  Object.assign(scope, extra);
   scope.window = scope;
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../game.js'), 'utf8'), scope, { filename: 'game.js' });
   return {
@@ -262,4 +263,53 @@ test('level cards show the chef-card record while a card is selected', () => {
   assert.match(cards, /主廚卡紀錄 \$950（阿艾）/); assert.match(cards, /最佳 3 星/); assert.match(cards, /主廚卡紀錄 · 尚未挑戰/);
   assert.doesNotMatch(cards, /最佳營收 \$300/);
   ui.click('chef-picker', { chef: '' }); assert.match(ui.nodes['level-list'].innerHTML, /最佳營收 \$300/);
+});
+
+test('the version shown in run reports matches package.json', () => {
+  assert.equal(core.VERSION, require('../package.json').version);
+});
+
+test('copy run stats puts a readable service summary on the clipboard', async () => {
+  let copied = '';
+  const ui = runtime(new Map(), { navigator: { clipboard: { writeText: text => { copied = text; return Promise.resolve(); } } } });
+  ui.select('rush'); ui.nodes.start.onclick(); ui.frame();
+  Object.assign(ui.game, { revenue: 820, served: 7, expired: 1, flips: 4, burned: 1, wasted: 2, clock: 222 });
+  ui.game.finish(); ui.frame();
+  assert.equal(ui.nodes['copy-status'].textContent, '');
+  ui.nodes['copy-stats'].onclick(); await Promise.resolve();
+  for (const line of ['rechao 本局數據', '版本：' + core.VERSION, '模式：標準營業', '關卡：晚餐尖峰', '星數：2 / 3', '營收：$820', '成功上菜：7 道', '逾時訂單：1 道', '客人滿意度：88%', '成功翻炒：4 次', '燒焦／丟棄：1 / 2 次', '實際遊玩：3 分 42 秒'])
+    assert.ok(copied.split('\n').includes(line), line);
+  assert.match(copied, /時間：\d{4}-\d{2}-\d{2} \d{2}:\d{2}/);
+  assert.doesNotMatch(copied, /主廚：/, 'standard Alex lists no chef');
+  assert.match(ui.nodes['copy-status'].textContent, /已複製/);
+  ui.nodes.restart.onclick(); ui.game.finish(); ui.frame();
+  assert.equal(ui.nodes['copy-status'].textContent, '', 'a new result clears the old status');
+});
+
+test('without clipboard access the report is shown for manual copying', async () => {
+  const ui = runtime();
+  ui.select('prep-school'); ui.nodes.start.onclick(); ui.frame();
+  for (const g of ui.game.level.goals) { ui.game.held = { id: g.id, count: g.count }; ui.game.serve(); }
+  ui.frame();
+  ui.nodes['copy-stats'].onclick();
+  assert.equal(ui.nodes['copy-fallback'].classList.contains('hidden'), false);
+  assert.match(ui.nodes['copy-fallback'].value, /模式：學習課/); assert.match(ui.nodes['copy-fallback'].value, /已驗收：5 \/ 5 份/);
+  assert.match(ui.nodes['copy-status'].textContent, /請全選/);
+  const denied = runtime(new Map(), { navigator: { clipboard: { writeText: () => Promise.reject(new Error('denied')) } } });
+  denied.select('opening'); denied.nodes.start.onclick(); denied.game.finish(); denied.frame();
+  denied.nodes['copy-stats'].onclick(); await new Promise(r => setTimeout(r, 0));
+  assert.equal(denied.nodes['copy-fallback'].classList.contains('hidden'), false);
+  assert.match(denied.nodes['copy-fallback'].value, /模式：標準營業/);
+});
+
+test('career reports name the quiz, the trainee stats and the week', async () => {
+  let copied = '';
+  const records = new Map();
+  records.set(career.KEY, JSON.stringify({ run: { id: 'run-q', week: 3, stamina: 60, stats: { knife: 20 }, pending: { type: 'quiz' } } }));
+  const ui = runtime(records, { navigator: { clipboard: { writeText: text => { copied = text; return Promise.resolve(); } } } });
+  ui.nodes['career-open'].onclick(); ui.click('career-body', { career: 'quiz' });
+  ui.game.clock = 90; ui.frame();
+  ui.nodes['copy-stats'].onclick(); await Promise.resolve();
+  assert.match(copied, /模式：成長模式小考（刀工小考）/); assert.match(copied, /主廚：Alex · 刀工小考 刀工 20／火候 0/);
+  assert.match(copied, /成長進度：第 3 週/); assert.match(copied, /完成時間：未完成/); assert.match(copied, /星數：0 \/ 3/);
 });
