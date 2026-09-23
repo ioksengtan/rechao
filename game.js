@@ -458,6 +458,41 @@
       }
     }
   }
+  // Plain-text run summary for playtesters to paste into a chat; no personal data.
+  let lastReport = '';
+  const pad = n => String(n).padStart(2, '0');
+  const duration = seconds => `${Math.floor(seconds / 60)} 分 ${pad(Math.floor(seconds % 60))} 秒`;
+  function runReport(stars, completed) {
+    const now = new Date(), training = game.level.mode === 'training';
+    const mode = { standard: training ? '學習課' : '標準營業', chef: '主廚卡營業', exam: '成長模式結業考', quiz: '成長模式小考' }[session.kind];
+    const lines = [
+      'rechao 本局數據', `版本：${HotStirFry.VERSION}`,
+      `時間：${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`,
+      `模式：${mode}${session.kind === 'quiz' ? '（' + session.quiz.name + '）' : ''}`, `關卡：${game.level.name}`
+    ];
+    if (game.chef && session.kind !== 'standard') lines.push(`主廚：${game.chef.nickname}${game.chef.title ? '（' + game.chef.title + '）' : ''} ` + Object.keys(Career.STAT_NAMES).map(k => `${Career.STAT_NAMES[k]} ${game.chef.stats[k] || 0}`).join('／'));
+    if ((session.kind === 'quiz' || session.kind === 'exam') && careerSave.run) lines.push(`成長進度：第 ${careerSave.run.log.at(-1)?.week || careerSave.run.week} 週`);
+    lines.push(`星數：${stars} / 3`);
+    if (training) {
+      const total = game.level.goals.reduce((sum, g) => sum + g.count, 0);
+      lines.push(`已驗收：${game.served} / ${total} 份`, `完成時間：${completed ? game.clock.toFixed(1) + ' 秒' : '未完成'}`);
+    } else {
+      lines.push(`營收：$${game.revenue}`, `成功上菜：${game.served} 道`, `逾時訂單：${game.expired} 道`, `客人滿意度：${game.satisfaction}%`, `成功翻炒：${game.flips} 次`, `燒焦／丟棄：${game.burned} / ${game.wasted} 次`);
+    }
+    lines.push(`實際遊玩：${duration(game.clock)}`);
+    return lines.join('\n');
+  }
+  function showFallback(message) {
+    $('copy-status').textContent = message;
+    $('copy-fallback').value = lastReport; $('copy-fallback').classList.remove('hidden');
+    $('copy-fallback').focus(); $('copy-fallback').select?.();
+  }
+  $('copy-stats').onclick = () => {
+    if (!lastReport) return;
+    const clipboard = window.navigator?.clipboard;
+    if (!clipboard?.writeText) return showFallback('無法自動複製，請全選下方文字後複製。');
+    clipboard.writeText(lastReport).then(() => { $('copy-status').textContent = '已複製！貼給開發者就好。'; }, () => showFallback('無法自動複製，請全選下方文字後複製。'));
+  };
   function finish() {
     ended = true; clearInput(); updatePauseLabel(); syncPlayChrome();
     const completed = game.level.mode === 'training' && game.level.goals.every(g => game.delivered[g.id] === g.count);
@@ -499,6 +534,7 @@
       $('best-record').textContent = '小考成績不列入學習紀錄。';
       $('next-level').textContent = '回到打工日記 →';
     }
+    lastReport = runReport(stars, completed); $('copy-status').textContent = ''; $('copy-fallback').value = ''; $('copy-fallback').classList.add('hidden');
     $('welcome').classList.add('hidden'); $('paused').classList.add('hidden'); $('results').classList.remove('hidden'); $('overlay').classList.remove('hidden'); sound('serve'); updateHUD(); (next || career ? $('next-level') : $('restart')).focus();
   }
   // A knife tap every few frames while F is held on a board that still has raw food.

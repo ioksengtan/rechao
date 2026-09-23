@@ -23,9 +23,9 @@ function classListFor(classes) {
   };
 }
 
-function runtime(options = {}) {
+function runtime(options = {}, extra = {}) {
   const records = options instanceof Map ? options : new Map();
-  const settings = options instanceof Map ? {} : options;
+  const settings = options instanceof Map ? extra : options;
   const nodes = {}, events = {};
   let frame, now = 0, game, player;
   const context2d = new Proxy({}, { get: (target, key) => target[key] || (() => {}), set: (target, key, value) => (target[key] = value, true) });
@@ -57,7 +57,7 @@ function runtime(options = {}) {
       addEventListener: (name, cb) => { events[name] = cb; },
       elementFromPoint() { return null; }
     },
-    navigator: { maxTouchPoints: settings.touch ? 1 : 0 },
+    navigator: { maxTouchPoints: settings.touch ? 1 : 0, ...(settings.clipboard ? { clipboard: settings.clipboard } : {}) },
     matchMedia: query => ({ matches: !!(settings.coarse && /pointer:\s*coarse/.test(query)) || !!(settings.narrow && /max-width:\s*820px/.test(query)) }),
     addEventListener: (name, cb) => { events[name] = cb; },
     requestAnimationFrame: cb => { frame = cb; },
