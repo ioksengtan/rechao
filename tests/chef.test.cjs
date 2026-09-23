@@ -42,3 +42,13 @@ test('knife, heat, season and control change the kitchen timings', () => {
   g.addOrder('greens'); g.interact('plates'); g.interact('wok'); g.serve();
   assert.equal(g.revenue, 80 + 16 + 16, 'full speed bonus plus a 20% quality bonus');
 });
+
+test('career quizzes and exams bring the trainee stats into a lesson; elapsed time pauses with the game', () => {
+  const g = new Kitchen(() => .5, 'prep-school');
+  g.reset('prep-school', { ...maxed, exam: true });
+  assert.equal(g.mods.chopTime, 1.4);
+  g.tick(2); g.paused = true; g.tick(5); g.paused = false; g.tick(1);
+  assert.equal(+g.clock.toFixed(6), 3);
+  g.reset('prep-school', maxed); assert.equal(g.mods.chopTime, 2, 'a chef card alone never changes a lesson');
+  assert.equal(g.clock, 0);
+});

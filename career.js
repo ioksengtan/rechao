@@ -14,6 +14,12 @@
   };
   const MAIN_GAIN = 12, SUB_GAIN = 5;
   const TITLES = ['見習生', '見習生', '二廚', '總舖師'];
+  const STAR_BONUS = [0, 2, 4, 6];
+  // Weeks 3 and 6 end with a short timed quiz on an existing lesson; faster runs earn more stars.
+  const QUIZZES = {
+    3: { level: 'prep-school', name: '刀工小考', stat: 'knife', limit: 90, par: [55, 40] },
+    6: { level: 'juice-school', name: '調飲小考', stat: 'season', limit: 150, par: [100, 70] }
+  };
   const EVENTS = [
     { id: 'late-practice', speaker: 'aming', scene: '打烊後，廚房只剩一盞燈', text: '阿明：還有力氣嗎？我把剩下的蔥拿出來，要不要留下來多練幾刀？',
       choices: [{ label: '留下練習', stamina: -15, stats: { knife: 8 }, result: 'Alex 切到手痠，刀工更穩了。' }, { label: '先回去休息', stamina: 15, result: '阿明：也好，明天見。' }] },
@@ -33,6 +39,8 @@
       choices: [{ label: '接下大單', stamina: -25, stats: { heat: 6, control: 6 }, result: '兩口鍋同時開火，Alex 撐過了最忙的一晚。' }, { label: '婉拒，專心練基本功', stats: { knife: 4 }, result: '阿明點點頭：量力而為也是本事。' }] }
   ];
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  const int = (value, min, max, fallback) => Number.isFinite(value) ? clamp(Math.floor(value), min, max) : fallback;
+  const quizId = run => `${run.id}-w${run.week}`;
   const emptyStats = () => ({ knife: 0, heat: 0, season: 0, charm: 0, control: 0 });
   const eventById = id => EVENTS.find(e => e.id === id);
 
@@ -61,6 +69,7 @@
     if (hurt) run.injured = 1;
     run.log.push({ week: run.week, action: actionId, gains: preview.gains, injured: hurt });
     if (run.week === WEEKS) run.pending = { type: 'exam', id: run.id + '-final' };
+    else if (QUIZZES[run.week]) run.pending = { type: 'quiz', id: quizId(run) };
     else {
       const pool = EVENTS.filter(e => !run.usedEvents.includes(e.id));
       if (pool.length && random() < EVENT_CHANCE) {
@@ -78,11 +87,26 @@
     run.pending = null; run.week++;
     return choice;
   }
+  const quizFor = run => run?.pending?.type === 'quiz' ? QUIZZES[run.week] : null;
+  function quizStars(quiz, completed, seconds) {
+    if (!quiz || !completed) return 0;
+    return 1 + quiz.par.filter(limit => seconds <= limit).length;
+  }
+  function settleQuiz(run, id, stars) {
+    const quiz = quizFor(run);
+    if (!quiz || run.pending.id !== id) return false;
+    stars = clamp(Math.floor(Number(stars) || 0), 0, 3);
+    const bonus = STAR_BONUS[stars];
+    applyStats(run, { [quiz.stat]: bonus });
+    run.log.push({ week: run.week, quiz: quiz.level, stars });
+    run.pending = null; run.week++;
+    return { quiz, stars, bonus };
+  }
   // An exam id settles once, so replays or repeated result screens cannot grant the bonus twice.
   function settleExam(run, examId, revenue, stars) {
     if (run?.pending?.type !== 'exam' || run.pending.id !== examId) return false;
     stars = clamp(Math.floor(Number(stars) || 0), 0, 3);
-    const bonus = [0, 2, 4, 6][stars];
+    const bonus = STAR_BONUS[stars];
     for (const key of Object.keys(run.stats)) run.stats[key] = clamp(run.stats[key] + bonus, 0, 100);
     run.result = { revenue: Math.max(0, Math.floor(Number(revenue) || 0)), stars, bonus, title: TITLES[stars] };
     run.pending = { type: 'card' };
@@ -93,16 +117,59 @@
     const name = String(nickname || '').trim().slice(0, 12) || `Alex #${run.id.slice(-4)}`;
     return { id: run.id, nickname: name, title: run.result.title, stats: { ...run.stats }, examRevenue: run.result.revenue, examStars: run.result.stars };
   }
-  const validCard = c => c && typeof c.id === 'string' && c.stats && typeof c.stats === 'object';
+  // Saves are rebuilt field by field: repairable gaps get defaults, unusable runs and cards are dropped.
+  function cleanStats(raw) {
+    const stats = emptyStats();
+    if (raw && typeof raw === 'object') for (const key of Object.keys(stats)) stats[key] = int(raw[key], 0, 100, 0);
+    return stats;
+  }
+  function cleanResult(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const stars = int(raw.stars, 0, 3, 0);
+    return { revenue: int(raw.revenue, 0, 1e9, 0), stars, bonus: STAR_BONUS[stars], title: TITLES[stars] };
+  }
+  function cleanRun(raw) {
+    if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !raw.id || !raw.stats || typeof raw.stats !== 'object') return null;
+    const run = {
+      id: raw.id, week: int(raw.week, 1, WEEKS, 1), stamina: int(raw.stamina, 0, 100, 100), injured: int(raw.injured, 0, 1, 0), stats: cleanStats(raw.stats),
+      usedEvents: Array.isArray(raw.usedEvents) ? [...new Set(raw.usedEvents.filter(eventById))] : [], log: Array.isArray(raw.log) ? raw.log : [], pending: null, result: cleanResult(raw.result)
+    };
+    const p = raw.pending && typeof raw.pending === 'object' ? raw.pending : {};
+    if (run.result) run.pending = { type: 'card' };
+    else if (p.type === 'event' && eventById(p.id)) { run.pending = { type: 'event', id: p.id }; if (!run.usedEvents.includes(p.id)) run.usedEvents.push(p.id); }
+    else if (p.type === 'quiz' && QUIZZES[run.week]) run.pending = { type: 'quiz', id: quizId(run) };
+    else if (p.type === 'exam' && run.week === WEEKS) run.pending = { type: 'exam', id: run.id + '-final' };
+    return run;
+  }
+  function cleanCard(raw) {
+    if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !raw.id || !raw.stats || typeof raw.stats !== 'object') return null;
+    const stars = int(raw.examStars, 0, 3, 0);
+    return {
+      id: raw.id, nickname: typeof raw.nickname === 'string' && raw.nickname.trim() ? raw.nickname.trim().slice(0, 12) : `Alex #${raw.id.slice(-4)}`,
+      title: TITLES.includes(raw.title) ? raw.title : TITLES[stars], stats: cleanStats(raw.stats), examRevenue: int(raw.examRevenue, 0, 1e9, 0), examStars: stars
+    };
+  }
+  function cleanRecords(raw) {
+    const records = {};
+    if (!raw || typeof raw !== 'object') return records;
+    for (const [id, row] of Object.entries(raw)) {
+      if (!row || typeof row !== 'object') continue;
+      const chef = row.chef && typeof row.chef === 'object' ? { nickname: String(row.chef.nickname || 'Alex').slice(0, 12), title: TITLES.includes(row.chef.title) ? row.chef.title : TITLES[0], stats: cleanStats(row.chef.stats) } : null;
+      records[id] = { revenue: int(row.revenue, 0, 1e9, 0), stars: int(row.stars, 0, 3, 0), runs: int(row.runs, 0, 1e9, 0), chef };
+    }
+    return records;
+  }
 
   class CareerSave {
     constructor(storage) {
       this.storage = storage;
       let raw = {};
       try { raw = JSON.parse(storage?.getItem(KEY) || '{}') || {}; } catch (_) {}
-      this.run = raw.run && raw.run.stats && Number.isFinite(raw.run.week) ? raw.run : null;
-      this.cards = Array.isArray(raw.cards) ? raw.cards.filter(validCard).slice(0, MAX_CARDS) : [];
-      this.records = raw.records && typeof raw.records === 'object' ? raw.records : {};
+      if (!raw || typeof raw !== 'object') raw = {};
+      this.run = cleanRun(raw.run);
+      const cards = Array.isArray(raw.cards) ? raw.cards.map(cleanCard).filter(Boolean) : [];
+      this.cards = cards.filter((card, i) => cards.findIndex(c => c.id === card.id) === i).slice(0, MAX_CARDS);
+      this.records = cleanRecords(raw.records);
     }
     save() { try { this.storage?.setItem(KEY, JSON.stringify({ run: this.run, cards: this.cards, records: this.records })); } catch (_) { /* Career stays session-only. */ } }
     start(random) { this.run = newRun(random); this.save(); return this.run; }
@@ -124,7 +191,7 @@
       this.save(); return { ...row };
     }
   }
-  const api = { KEY, WEEKS, MAX_CARDS, EXAM_LEVEL, STAT_NAMES, STAT_EFFECTS, ACTIONS, EVENTS, TITLES, newRun, previewAction, efficiency, injuryChance, chooseAction, resolveEvent, settleExam, makeCard, eventById, CareerSave };
+  const api = { KEY, WEEKS, MAX_CARDS, EXAM_LEVEL, STAT_NAMES, STAT_EFFECTS, ACTIONS, EVENTS, TITLES, STAR_BONUS, QUIZZES, newRun, previewAction, efficiency, injuryChance, chooseAction, resolveEvent, quizFor, quizStars, settleQuiz, settleExam, makeCard, eventById, CareerSave };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HotStirFryCareer = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

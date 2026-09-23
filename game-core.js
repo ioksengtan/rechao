@@ -139,7 +139,8 @@
     constructor(random = Math.random, levelId = 'opening') { this.random = random; this.reset(levelId); }
     reset(levelId = this.level?.id || 'opening', chef = this.chef ?? null) {
       this.level = LEVELS.find(l => l.id === levelId) || LEVELS[0];
-      this.chef = chef; this.mods = getChefModifiers(this.level.mode === 'training' ? null : chef);
+      // Lessons use standard rules unless a career quiz or exam brings the trainee's stats.
+      this.chef = chef; this.mods = getChefModifiers(this.level.mode === 'training' && !chef?.exam ? null : chef); this.clock = 0;
       this.phase = this.level.mode === 'training' ? 'training' : 'prep'; this.delivered = {}; this.time = this.level.prepTime; this.paused = false; this.held = null;
       this.stations = getStations(this.level);
       this.woks = Object.fromEntries(this.stations.filter(s => s.type === 'wok').map(s => [s.id, emptyWok()]));
@@ -282,6 +283,7 @@
       while (dt > 1e-8 && this.phase !== 'ended') { const step = Math.min(dt, .05); this.step(step, workingStation); dt -= step; }
     }
     step(dt, workingStation) {
+      this.clock += dt;
       if (this.level.mode !== 'training') this.time -= dt;
       for (let i = this.returns.length - 1; i >= 0; i--) { this.returns[i] -= dt; if (this.returns[i] <= 0) { this.plates++; this.returns.splice(i, 1); } }
       const board = this.stations.find(s => s.type === 'board' && s.id === workingStation);
