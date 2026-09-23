@@ -2,51 +2,10 @@
 // Visual layout is checked separately in a browser; these tests cover lifecycle wiring.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
-const core = require('../game-core.js');
-const movement = require('../movement.js');
 const progress = require('../progress.js');
 const career = require('../career.js');
-const art = require('../art.js');
-const audio = require('../audio.js');
-
-function runtime(records = new Map(), extra = {}) {
-  const nodes = {}, events = {};
-  let frame, now = 0, game, player;
-  const context2d = new Proxy({}, { get: (target, key) => target[key] || (() => {}), set: (target, key, value) => (target[key] = value, true) });
-  const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
-  for (const match of html.matchAll(/id="([^"]+)"/g)) {
-    const classes = new Set();
-    nodes[match[1]] = { textContent: '', innerHTML: '', disabled: false, focus() {}, getContext: () => context2d, querySelector: () => ({ focus() {} }),
-      classList: { add: key => classes.add(key), remove: key => classes.delete(key), contains: key => classes.has(key), toggle(key, force) { const on = force ?? !classes.has(key); if (on) classes.add(key); else classes.delete(key); return on; } } };
-  }
-  const scope = {
-    document: { getElementById: id => { assert.ok(nodes[id], `DOM node exists: ${id}`); return nodes[id]; }, addEventListener: (name, cb) => events[name] = cb },
-    addEventListener: (name, cb) => events[name] = cb,
-    requestAnimationFrame: cb => frame = cb,
-    performance: { now: () => now },
-    localStorage: { getItem: key => records.get(key), setItem: (key, value) => records.set(key, value) },
-    HotStirFry: { ...core, Kitchen: class extends core.Kitchen { constructor() { super(); game = this; } } },
-    HotStirFryMovement: { ...movement, createPlayer() { player = movement.createPlayer(); return player; } },
-    HotStirFryProgress: progress,
-    HotStirFryCareer: career,
-    HotStirFryArt: art,
-    HotStirFryAudio: audio,
-  };
-  Object.assign(scope, extra);
-  scope.window = scope;
-  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../game.js'), 'utf8'), scope, { filename: 'game.js' });
-  return {
-    nodes, records, events, get game() { return game; }, get player() { return player; },
-    frame() { now += 1000 / 60; frame(now); },
-    click(id, dataset) { nodes[id].onclick({ target: { closest: () => ({ dataset }) } }); },
-    select(level) { nodes['level-list'].onclick({ target: { closest: () => ({ dataset: { level } }) } }); },
-    press(key) { events.keydown({ key, repeat: false, preventDefault() {} }); },
-    release(key) { events.keyup({ key }); }
-  };
-}
+const core = require('../game-core.js');
+const { runtime } = require('./ui-runtime.cjs');
 
 test('UI selection, keyboard movement, pause, results, next level and restart work together', () => {
   const ui = runtime();
@@ -61,7 +20,7 @@ test('UI selection, keyboard movement, pause, results, next level and restart wo
   const saved=JSON.parse(ui.records.get(progress.KEY)); assert.equal(saved.rush.runs,1); assert.equal(saved.rush.revenue,800);
   ui.frame(); assert.equal(JSON.parse(ui.records.get(progress.KEY)).rush.runs,1, 'one result written per session');
   ui.nodes['next-level'].onclick(); ui.frame(); assert.equal(ui.game.level.id,'friday'); assert.equal(ui.game.revenue,0); assert.equal(ui.game.plates,6);
-  ui.game.finish(); ui.frame(); assert.equal(ui.nodes['next-level'].classList.contains('hidden'),true);
+  ui.game.finish(); ui.frame(); assert.equal(ui.nodes['next-level'].classList.contains('hidden'),false); assert.match(ui.nodes['next-level'].textContent,/午休小局/);
   ui.nodes.restart.onclick(); ui.frame(); assert.equal(ui.game.level.id,'friday'); assert.equal(ui.game.phase,'prep');
 });
 
@@ -271,7 +230,7 @@ test('the version shown in run reports matches package.json', () => {
 
 test('copy run stats puts a readable service summary on the clipboard', async () => {
   let copied = '';
-  const ui = runtime(new Map(), { navigator: { clipboard: { writeText: text => { copied = text; return Promise.resolve(); } } } });
+  const ui = runtime(new Map(), { clipboard: { writeText: text => { copied = text; return Promise.resolve(); } } });
   ui.select('rush'); ui.nodes.start.onclick(); ui.frame();
   Object.assign(ui.game, { revenue: 820, served: 7, expired: 1, flips: 4, burned: 1, wasted: 2, clock: 222 });
   ui.game.finish(); ui.frame();
@@ -295,7 +254,7 @@ test('without clipboard access the report is shown for manual copying', async ()
   assert.equal(ui.nodes['copy-fallback'].classList.contains('hidden'), false);
   assert.match(ui.nodes['copy-fallback'].value, /模式：學習課/); assert.match(ui.nodes['copy-fallback'].value, /已驗收：5 \/ 5 份/);
   assert.match(ui.nodes['copy-status'].textContent, /請全選/);
-  const denied = runtime(new Map(), { navigator: { clipboard: { writeText: () => Promise.reject(new Error('denied')) } } });
+  const denied = runtime(new Map(), { clipboard: { writeText: () => Promise.reject(new Error('denied')) } });
   denied.select('opening'); denied.nodes.start.onclick(); denied.game.finish(); denied.frame();
   denied.nodes['copy-stats'].onclick(); await new Promise(r => setTimeout(r, 0));
   assert.equal(denied.nodes['copy-fallback'].classList.contains('hidden'), false);
@@ -306,7 +265,7 @@ test('career reports name the quiz, the trainee stats and the week', async () =>
   let copied = '';
   const records = new Map();
   records.set(career.KEY, JSON.stringify({ run: { id: 'run-q', week: 3, stamina: 60, stats: { knife: 20 }, pending: { type: 'quiz' } } }));
-  const ui = runtime(records, { navigator: { clipboard: { writeText: text => { copied = text; return Promise.resolve(); } } } });
+  const ui = runtime(records, { clipboard: { writeText: text => { copied = text; return Promise.resolve(); } } });
   ui.nodes['career-open'].onclick(); ui.click('career-body', { career: 'quiz' });
   ui.game.clock = 90; ui.frame();
   ui.nodes['copy-stats'].onclick(); await Promise.resolve();

@@ -2,9 +2,9 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>rechao — 熱炒開店啦！｜單人料理小遊戲</title>
-  <link rel="stylesheet" href="style.css?v=0.9.0">
+  <link rel="stylesheet" href="style.css?v=0.11.0">
 </head>
 <body>
   <main class="app">
@@ -22,16 +22,30 @@
     <div class="play-layout">
       <section class="kitchen-panel">
         <div class="panel-heading"><span id="kitchen-title">第一晚開張 · 今晚，你是總舖師</span><span id="held-label">雙手空空</span></div>
-        <div class="canvas-wrap"><canvas id="game" width="1160" height="720" aria-label="台灣巷口熱炒店，左側操作廚房、右側用餐區。使用 WASD 移動、E 拿放、F 料理"></canvas><div id="toast" role="status"></div><div id="interaction"></div></div>
+        <div class="canvas-wrap"><canvas id="game" width="1160" height="720" aria-label="台灣巷口熱炒店，左側操作廚房、右側用餐區。使用 WASD 或畫面方向鍵移動、E 拿放、按住 F 料理"></canvas><div id="toast" role="status"></div><div id="interaction"></div>
+          <div id="touch-controls" class="touch-controls" hidden>
+            <div class="dpad" role="group" aria-label="移動">
+              <button type="button" id="touch-up" tabindex="-1" aria-label="向上" aria-pressed="false">▲</button>
+              <button type="button" id="touch-left" tabindex="-1" aria-label="向左" aria-pressed="false">◀</button>
+              <button type="button" id="touch-down" tabindex="-1" aria-label="向下" aria-pressed="false">▼</button>
+              <button type="button" id="touch-right" tabindex="-1" aria-label="向右" aria-pressed="false">▶</button>
+              <span class="dpad-hub" aria-hidden="true">炒</span>
+            </div>
+            <div class="action-pad" role="group" aria-label="拿放與料理">
+              <button type="button" id="touch-e" tabindex="-1" aria-label="拿放、盛裝、出餐" aria-pressed="false">E<small>拿放</small></button>
+              <button type="button" id="touch-f" tabindex="-1" aria-label="按住切料、開火、翻炒、清鍋或調果汁" aria-pressed="false">F<small>按住</small></button>
+            </div>
+          </div>
+        </div>
         <div id="wok-status" class="wok-status" aria-label="各炒爐狀態"></div>
-        <div class="control-bar"><span><kbd>W A S D</kbd> / <kbd>↑ ↓ ← →</kbd> 移動</span><span><kbd>E</kbd> 拿放・盛裝・出餐</span><span><kbd>F</kbd> 切料・炒菜</span></div>
+        <div class="control-bar"><span class="keys-hint"><kbd>W A S D</kbd> / <kbd>↑ ↓ ← →</kbd> 移動</span><span class="keys-hint"><kbd>E</kbd> 拿放・盛裝・出餐</span><span class="keys-hint"><kbd>F</kbd> 切料・炒菜・按住不放</span><span id="control-touch" class="touch-hint">左下移動 · 輕點 E 拿放 · 按住 F 切料、開火、翻炒、清鍋、調果汁</span></div>
       </section>
       <aside>
         <section class="orders-panel"><div class="side-heading"><h2 id="orders-title">點菜單</h2><span id="order-count">0 / 2</span></div><p id="orders-subtitle" class="section-subtitle">熱騰騰上桌，客人就開心。</p><div id="orders"></div><button id="open-early" class="small-action">備料完成，提早開店 →</button></section>
         <section class="recipe-panel"><div class="side-heading"><h2 id="menu-title">今晚菜單</h2><span id="menu-count">2 道拿手菜</span></div><div id="recipe-list"></div><div class="chef-note"><strong>主廚筆記</strong><p id="tip">站到工作站旁，看腳下的操作提示。按住 F 才能持續切料。</p></div></section>
       </aside>
     </div>
-    <footer><span>小小廚房，大大鍋氣。</span><span>原型 v0.9 · 成長模式小考 · 鍵盤操作</span></footer>
+    <footer><span>小小廚房，大大鍋氣。</span><span>原型 v0.11 · 午休小局 · 鍵盤與觸控</span></footer>
   </main>
   <div id="overlay" class="overlay">
     <section class="modal level-modal" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
@@ -46,7 +60,7 @@
       <div class="origin-scene"><span class="origin-lantern">炒</span><div><strong>巷口熱炒</strong><p id="origin-scene-label"></p></div><span class="origin-steam" aria-hidden="true">♨</span></div>
       <div class="origin-dialogue"><div class="origin-portrait" id="origin-portrait" aria-hidden="true"></div><div class="origin-lines" aria-live="polite" aria-atomic="true"><strong id="origin-speaker"></strong><p id="origin-text"></p></div></div>
       <div class="origin-controls"><button id="origin-prev" class="secondary">上一句</button><span id="origin-progress"></span><button id="origin-next" class="primary">下一句 →</button></div>
-      <button id="origin-close" class="text-button">返回選關</button><p class="modal-foot">Enter／空白鍵／→ 下一句 · ← 上一句 · Esc 返回</p>
+      <button id="origin-close" class="text-button">返回選關</button><p class="modal-foot" id="origin-foot">Enter／空白鍵／→ 下一句 · ← 上一句 · Esc 返回</p>
     </section>
     <section class="modal hidden career-modal" id="career" role="dialog" aria-modal="true" aria-labelledby="career-title">
       <div class="modal-kicker">RECHAO · CAREER</div><h2 id="career-title">Alex 的打工日記</h2><p id="career-week" class="career-week"></p>
@@ -61,6 +75,6 @@
     <section class="modal hidden" id="paused" role="dialog" aria-modal="true" aria-labelledby="pause-title"><div class="modal-kicker">休息一下</div><h2 id="pause-title">爐火與時間，都幫你暫停了。</h2><p class="intro">準備好了，就繼續出菜。</p><button id="resume" class="primary">繼續營業 →</button><button id="restart-pause" class="secondary">重新開始這一晚</button><button id="choose-pause" class="text-button">結束本局，返回選關</button></section>
     <section class="modal hidden" id="results" role="dialog" aria-modal="true" aria-labelledby="result-title"><div class="modal-kicker" id="result-level">辛苦了，主廚</div><div id="stars" class="stars">★★★</div><h2 id="result-title">今晚打烊啦！</h2><p id="result-message" class="intro"></p><div id="result-stats"></div><p id="best-record"></p><div class="copy-row"><button id="copy-stats" class="small-action">複製本局數據</button><span id="copy-status" role="status"></span></div><textarea id="copy-fallback" class="copy-fallback hidden" readonly rows="9" aria-label="本局數據"></textarea><button id="next-level" class="primary">挑戰下一晚 →</button><button id="restart" class="secondary">再開一晚</button><button id="choose-results" class="text-button">返回選關</button></section>
   </div>
-  <script src="game-core.js?v=0.9.0"></script><script src="progress.js?v=0.9.0"></script><script src="career.js?v=0.9.0"></script><script src="movement.js?v=0.9.0"></script><script src="audio.js?v=0.9.0"></script><script src="art.js?v=0.9.0"></script><script src="game.js?v=0.9.0"></script>
+  <script src="game-core.js?v=0.11.0"></script><script src="progress.js?v=0.11.0"></script><script src="career.js?v=0.11.0"></script><script src="movement.js?v=0.11.0"></script><script src="audio.js?v=0.11.0"></script><script src="art.js?v=0.11.0"></script><script src="game.js?v=0.11.0"></script>
 </body>
 </html>
