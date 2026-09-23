@@ -20,7 +20,7 @@ test('UI selection, keyboard movement, pause, results, next level and restart wo
   const saved=JSON.parse(ui.records.get(progress.KEY)); assert.equal(saved.rush.runs,1); assert.equal(saved.rush.revenue,800);
   ui.frame(); assert.equal(JSON.parse(ui.records.get(progress.KEY)).rush.runs,1, 'one result written per session');
   ui.nodes['next-level'].onclick(); ui.frame(); assert.equal(ui.game.level.id,'friday'); assert.equal(ui.game.revenue,0); assert.equal(ui.game.plates,6);
-  ui.game.finish(); ui.frame(); assert.equal(ui.nodes['next-level'].classList.contains('hidden'),true);
+  ui.game.finish(); ui.frame(); assert.equal(ui.nodes['next-level'].classList.contains('hidden'),false); assert.match(ui.nodes['next-level'].textContent,/午休小局/);
   ui.nodes.restart.onclick(); ui.frame(); assert.equal(ui.game.level.id,'friday'); assert.equal(ui.game.phase,'prep');
 });
 
