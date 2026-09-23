@@ -1,7 +1,7 @@
 /* Single-player input, UI and presentation hooks. No runtime dependencies. */
 (() => {
   'use strict';
-  const { Kitchen, ITEMS, RECIPES, LEVELS, starCount, portionsFor, cookDuration } = window.HotStirFry;
+  const { Kitchen, ITEMS, RECIPES, LEVELS, starCount, portionsFor, cookDuration, flipWindowText } = window.HotStirFry;
   const { createPlayer, movePlayer } = window.HotStirFryMovement;
   const $ = id => document.getElementById(id);
   const canvas = $('game'), ctx = canvas.getContext('2d');
@@ -13,7 +13,8 @@
   const TOUCH_MAP = { 'touch-up': 'w', 'touch-left': 'a', 'touch-down': 's', 'touch-right': 'd', 'touch-e': 'e', 'touch-f': 'f' };
   let sawTouch = false, touchActive = false;
   let player = createPlayer(), running = false, target = null;
-  let last = performance.now(), hudTimer = 0, toastUntil = 0, muted = false, audio = null, ended = false;
+  let last = performance.now(), hudTimer = 0, toastUntil = 0, chopTimer = 0, ended = false;
+  const sfx = window.HotStirFryAudio.createAudio(window);
   let storage;
   try { storage = localStorage; } catch (_) { /* Scores remain session-only when browser storage is blocked. */ }
   const progress = new window.HotStirFryProgress.Progress(storage);
@@ -38,7 +39,7 @@
   function renderOrigin() {
     const [scene, speaker, portrait, line] = originLines[originIndex];
     $('origin-scene-label').textContent = scene; $('origin-speaker').textContent = speaker;
-    $('origin-portrait').innerHTML = `<img src="assets/portrait-${portrait === '艾' ? 'alex' : 'aming'}.svg" alt="" width="180" height="210">`; $('origin-text').textContent = line;
+    $('origin-portrait').innerHTML = portraitHtml(portrait === '艾' ? 'alex' : 'aming'); $('origin-text').textContent = line;
     $('origin-progress').textContent = `${originIndex + 1} / ${originLines.length}`;
     $('origin-prev').disabled = originIndex === 0;
     $('origin-next').textContent = originIndex === originLines.length - 1 ? '前往選關 →' : '下一句 →';
@@ -55,11 +56,114 @@
   $('origin-close').onclick = closeOrigin;
   $('origin-next').onclick = nextOrigin;
   $('origin-prev').onclick = () => { if (originIndex > 0) { originIndex--; renderOrigin(); } };
-  function sound(type) {
-    if (muted || !audio) return;
-    const tones = { tap:[320], done:[523,659], order:[660,880], serve:[523,659,784], bad:[220,160], fire:[140,190] }[type] || [320];
-    tones.forEach((hz, i) => { const o = audio.createOscillator(), gain = audio.createGain(), t = audio.currentTime + i * .09; o.type = 'sine'; o.frequency.value = hz; gain.gain.setValueAtTime(.045, t); gain.gain.exponentialRampToValueAtTime(.001, t + .15); o.connect(gain); gain.connect(audio.destination); o.start(t); o.stop(t + .16); });
+  function portraitHtml(who) { return who === 'guest' ? '<span>客</span>' : `<img src="assets/portrait-${who === 'alex' ? 'alex' : 'aming'}.svg" alt="" width="180" height="210">`; }
+  // Career mode: weekly choices build a chef card that service levels can use.
+  const Career = window.HotStirFryCareer, careerSave = new Career.CareerSave(storage);
+  let session = { kind: 'standard', level: selectedLevel, chef: null }, selectedChef = null;
+  let careerOpen = false, careerNote = '', careerSlot = -1, confirmArmed = '';
+  const esc = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const signed = v => (v > 0 ? '+' : '') + v;
+  const effectLine = (stats = {}, stamina = 0) => [...Object.entries(stats).filter(([, v]) => v).map(([k, v]) => `${Career.STAT_NAMES[k]} ${signed(v)}`), stamina ? `體力 ${signed(stamina)}` : ''].filter(Boolean).join('、') || '沒有數值變化';
+  const meter = (label, value, hint = '') => `<div class="stat-row"${hint ? ` title="${hint}"` : ''}><span>${label}</span><div class="meter"><i style="width:${value}%"></i></div><b>${value}</b></div>`;
+  const statBars = stats => Object.keys(Career.STAT_NAMES).map(k => meter(Career.STAT_NAMES[k], stats[k], Career.STAT_EFFECTS[k])).join('');
+  function modifierLine(stats) {
+    const m = HotStirFry.getChefModifiers({ stats });
+    return `切料 ${+m.chopTime.toFixed(2)} 秒 · 翻炒 ${flipWindowText(m)} · 品質 +${Math.round(m.qualityBonus * 100)}% · 耐心 ×${+m.patience.toFixed(2)} · ${+m.burnTime.toFixed(1)} 秒後燒焦`;
   }
+  const cardHtml = card => `<div class="chef-card"><div class="chef-card-head"><strong>${esc(card.nickname)}</strong><span>${esc(card.title)}</span></div><div class="stat-bars">${statBars(card.stats)}</div><small>${modifierLine(card.stats)}</small></div>`;
+  function renderCareer() {
+    const run = careerSave.run, pending = run?.pending?.type;
+    $('career-status').classList.toggle('hidden', !run || pending === 'card');
+    $('career-name-field').classList.toggle('hidden', pending !== 'card');
+    $('career-abandon').classList.toggle('hidden', !run || pending === 'card');
+    $('career-abandon').textContent = confirmArmed === 'abandon' ? '確定放棄這一輪？再按一次' : '放棄這一輪';
+    $('career-message').textContent = careerNote;
+    $('career-card-actions').innerHTML = '';
+    $('career-week').textContent = !run ? `${Career.WEEKS} 週打工 · 結業得到主廚卡` : pending === 'card' ? '結業' : `第 ${run.week} / ${Career.WEEKS} 週`;
+    if (run) $('career-stats').innerHTML = `<div class="stat-bars">${meter('體力', run.stamina, '體力低於 50 時訓練效果會下降')}${statBars(run.stats)}</div>${run.injured ? '<small class="career-warn">受傷中：下次訓練效果減半。</small>' : ''}`;
+    if (!run) {
+      $('career-body').innerHTML = `<div class="career-intro"><p>在阿明的熱炒店打工 ${Career.WEEKS} 週。每週選一件事練習，遇到事件時做出選擇；第 ${Career.WEEKS} 週通過結業考，就能得到一張主廚卡，帶進熱炒營業。</p><button class="primary" data-career="start">開始新的一輪 →</button></div>`
+        + `<h3 class="career-heading">我的主廚卡（${careerSave.cards.length} / ${Career.MAX_CARDS}）</h3>`
+        + (careerSave.cards.length ? `<div class="chef-cards">${careerSave.cards.map(cardHtml).join('')}</div>` : '<p class="career-empty">還沒有主廚卡。</p>');
+    } else if (pending === 'event') {
+      const e = Career.eventById(run.pending.id);
+      $('career-body').innerHTML = `<div class="origin-scene career-scene"><span class="origin-lantern">事</span><div><strong>第 ${run.week} 週 · 事件</strong><p>${e.scene}</p></div></div>`
+        + `<div class="origin-dialogue"><div class="origin-portrait" aria-hidden="true">${portraitHtml(e.speaker)}</div><div class="origin-lines"><p>${e.text}</p></div></div>`
+        + `<div class="career-choices">${e.choices.map((c, i) => `<button class="career-option" data-career="choice" data-value="${i}"><strong>${c.label}</strong><span>${effectLine(c.stats, c.stamina)}</span></button>`).join('')}</div>`;
+    } else if (pending === 'quiz') {
+      const quiz = Career.quizFor(run), level = LEVELS.find(l => l.id === quiz.level);
+      $('career-body').innerHTML = `<div class="career-exam"><h3>第 ${run.week} 週 · ${quiz.name}</h3><p>阿明：來考一下這幾週學的！課程是「${level.name}」，目標 ${goalText(level)}。限時 ${quiz.limit} 秒，用目前的能力上場。</p>`
+        + `<p>${quiz.par[1]} 秒內完成 3 星、${quiz.par[0]} 秒內 2 星、時間內完成 1 星；${Career.STAT_NAMES[quiz.stat]}依星數 +0／+2／+4／+6。沒考好也能繼續打工。</p>`
+        + `<small>${modifierLine(run.stats)}</small><button class="primary" data-career="quiz">開始${quiz.name} →</button></div>`;
+    } else if (pending === 'exam') {
+      $('career-body').innerHTML = `<div class="career-exam"><h3>結業考 · ${LEVELS.find(l => l.id === Career.EXAM_LEVEL).name}</h3><p>用目前的能力上場營業。星數決定稱號與全能力加成：0～1 星見習生（+0／+2）、2 星二廚（+4）、3 星總舖師（+6）。考差也一定拿得到主廚卡；結業考成績不列入營業紀錄。</p><small>${modifierLine(run.stats)}</small><button class="primary" data-career="exam">開始結業考 →</button></div>`;
+    } else if (pending === 'card') {
+      const r = run.result, preview = Career.makeCard(run, $('career-nickname').value), full = careerSave.full;
+      $('career-nickname').placeholder = Career.makeCard(run, '').nickname;
+      $('career-body').innerHTML = `<div class="career-result"><span class="stars">${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}</span><p>結業考營收 $${r.revenue} · 稱號「${r.title}」 · 全能力 +${r.bonus}</p></div>${cardHtml(preview)}`
+        + (full ? `<p class="career-warn">主廚卡已滿 ${Career.MAX_CARDS} 張。選一張替換，或放棄這張新卡。</p><div class="career-slots">${careerSave.cards.map((c, i) => `<button class="career-option ${careerSlot === i ? 'selected' : ''}" aria-pressed="${careerSlot === i}" data-career="slot" data-value="${i}"><strong>${esc(c.nickname)}</strong><span>${esc(c.title)}</span></button>`).join('')}</div>` : '');
+      $('career-card-actions').innerHTML = `<button class="primary" data-career="keep"${full && careerSlot < 0 ? ' disabled' : ''}>${full ? '替換並保留新卡' : '保留主廚卡'} →</button><button class="secondary" data-career="discard">${confirmArmed === 'discard' ? '確定放棄這張卡？再按一次' : '放棄這張卡'}</button>`;
+    } else {
+      $('career-body').innerHTML = `<div class="career-actions">${Object.entries(Career.ACTIONS).map(([id, a]) => {
+        const p = Career.previewAction(run, id), idle = id === 'rest' && !p.stamina, warn = [p.efficiency < 1 ? `效果 ×${+p.efficiency.toFixed(2)}` : '', p.injuryChance ? `受傷機率 ${Math.round(p.injuryChance * 100)}%` : ''].filter(Boolean).join(' · ');
+        return `<button class="career-option" data-career="action" data-value="${id}"><strong>${a.name}</strong><span>${idle ? '體力已滿，休息沒有效果' : effectLine(p.gains, p.stamina)}</span>${warn ? `<small>${warn}</small>` : ''}</button>`;
+      }).join('')}</div>${run.week === Career.WEEKS ? '<p class="career-note">這是最後一週，行動後就是結業考。</p>' : ''}`;
+    }
+  }
+  function careerClick(event) {
+    const button = event.target.closest('[data-career]');
+    if (!button || button.disabled) return;
+    const act = button.dataset.career, value = button.dataset.value, run = careerSave.run;
+    if (act === 'exam') { if (run?.pending?.type === 'exam') startExam(); return; }
+    if (act === 'quiz') { if (run?.pending?.type === 'quiz') startQuiz(); return; }
+    if (act === 'discard' && confirmArmed !== 'discard') { confirmArmed = 'discard'; renderCareer(); return; }
+    confirmArmed = ''; careerNote = '';
+    if (act === 'start' && !run) { careerSave.start(); careerNote = '第一週開始！先挑一件事練習吧。'; }
+    else if (act === 'action' && run) {
+      const r = Career.chooseAction(run, value);
+      if (r) { careerNote = `${Career.ACTIONS[value].name}：${effectLine(r.preview.gains, r.preview.stamina)}。${r.hurt ? 'Alex 不小心受傷了，下次訓練效果減半。' : ''}`; careerSave.save(); }
+    } else if (act === 'choice' && run) { const c = Career.resolveEvent(run, Number(value)); if (c) { careerNote = c.result; careerSave.save(); } }
+    else if (act === 'slot') careerSlot = Number(value);
+    else if (act === 'keep') {
+      const card = careerSave.keep($('career-nickname').value, careerSlot);
+      if (card) { careerNote = `「${card.nickname}」加入主廚卡！到熱炒營業選關時可以選擇上場。`; careerSlot = -1; selectedChef = card.id; $('career-nickname').value = ''; }
+    } else if (act === 'discard') { careerSave.discard(); careerSlot = -1; careerNote = '已放棄這張卡，主廚卡沒有變動。'; }
+    renderCareer(); $('career-body').querySelector('button')?.focus();
+  }
+  $('career-body').onclick = careerClick; $('career-card-actions').onclick = careerClick;
+  $('career-nickname').oninput = () => { if (careerSave.run?.pending?.type === 'card') renderCareer(); };
+  function openCareer() {
+    if (running && !ended) return;
+    careerOpen = true; clearInput(); careerNote = ''; confirmArmed = '';
+    ['welcome', 'results', 'paused'].forEach(id => $(id).classList.add('hidden'));
+    $('overlay').classList.remove('hidden'); $('career').classList.remove('hidden'); renderCareer(); $('career-body').querySelector('button')?.focus();
+  }
+  function closeCareer() {
+    careerOpen = false; confirmArmed = ''; careerNote = '';
+    $('career').classList.add('hidden'); $('welcome').classList.remove('hidden'); renderLevelSelect(); $('career-open').focus();
+  }
+  function startExam() {
+    const run = careerSave.run;
+    careerOpen = false; $('career').classList.add('hidden');
+    beginShift({ kind: 'exam', level: Career.EXAM_LEVEL, examId: run.pending.id, chef: { nickname: 'Alex · 結業考', stats: { ...run.stats }, exam: true } });
+  }
+  function startQuiz() {
+    const run = careerSave.run, quiz = Career.quizFor(run);
+    careerOpen = false; $('career').classList.add('hidden');
+    beginShift({ kind: 'quiz', level: quiz.level, quizId: run.pending.id, quiz, chef: { nickname: 'Alex · ' + quiz.name, stats: { ...run.stats }, exam: true } });
+  }
+  $('career-open').onclick = openCareer; $('career-close').onclick = closeCareer;
+  $('career-abandon').onclick = () => {
+    if (!careerSave.run) return;
+    if (confirmArmed !== 'abandon') { confirmArmed = 'abandon'; renderCareer(); return; }
+    careerSave.abandon(); confirmArmed = ''; careerNote = '已放棄這一輪。'; renderCareer();
+  };
+  $('chef-picker').onclick = event => {
+    const button = event.target.closest('[data-chef]');
+    if (!button) return;
+    selectedChef = button.dataset.chef || null; renderLevelSelect();
+  };
+  function sound(type) { sfx.play(type); }
   function showToast(text, tone) { $('toast').textContent = text; $('toast').classList.add('show'); toastUntil = performance.now() + 3200; sound(tone); }
   function drainEvents() { const events = game.events.splice(0); if (events.length) { const e = events[events.length - 1]; showToast(e.text, e.sound); } }
   function renderLevelSelect() {
@@ -68,9 +172,14 @@
     $('course-note').textContent = available.length ? (progress.records['prep-school'].runs ? '已完成備料課，可以挑戰熱炒營業；所有課程皆可自由選擇。' : '推薦第一課：備料 → 開店前的備料課。所有已開放課程皆可自由選擇。') : '師傅正在準備這門課，敬請期待。可以先選備料或熱炒營業。';
     $('start').disabled = !available.length;
     $('welcome-steps').classList.toggle('hidden', selectedCourse !== 'service');
+    if (selectedChef && !careerSave.card(selectedChef)) selectedChef = null;
+    const picking = selectedCourse === 'service' && careerSave.cards.length > 0;
+    $('chef-picker').classList.toggle('hidden', !picking);
+    $('chef-picker').innerHTML = picking ? '<span class="chef-picker-label">上場主廚</span>' + [{ id: '', nickname: '標準 Alex', title: '標準紀錄' }, ...careerSave.cards].map(c => `<button data-chef="${c.id}" class="${(selectedChef || '') === c.id ? 'selected' : ''}" aria-pressed="${(selectedChef || '') === c.id}">${esc(c.nickname)}<small>${esc(c.title)}</small></button>`).join('') + (selectedChef ? '<p>主廚卡成績另外記錄，不影響標準紀錄。</p>' : '') : '';
     $('level-list').innerHTML = available.map((level, i) => {
-      const record = progress.records[level.id];
-      return `<button class="level-card ${selectedLevel === level.id ? 'selected' : ''}" data-level="${level.id}" aria-pressed="${selectedLevel === level.id}"><span class="night-number">${level.mode === 'training' ? 'LESSON' : 'NIGHT'} 0${i+1}</span><strong>${level.name}</strong><span>${level.subtitle}</span><small>${level.mode === 'training' ? level.card : level.menu.length + ' 道菜 · ' + level.woks + ' 口炒鍋'}</small><span class="level-stars" aria-label="最佳 ${record.stars} 星">${'★'.repeat(record.stars)}${'☆'.repeat(3-record.stars)}</span><small>${record.runs || record.revenue ? (level.mode === 'training' ? '已完成 ' + record.runs + ' 次' : '最佳營收 $'+record.revenue) : '尚未完成 · 歡迎挑戰'}</small></button>`;
+      const chefRow = selectedChef && level.mode !== 'training' ? careerSave.records[level.id] : null;
+      const record = selectedChef && level.mode !== 'training' ? chefRow || { revenue: 0, stars: 0, runs: 0 } : progress.records[level.id];
+      return `<button class="level-card ${selectedLevel === level.id ? 'selected' : ''}" data-level="${level.id}" aria-pressed="${selectedLevel === level.id}"><span class="night-number">${level.mode === 'training' ? 'LESSON' : 'NIGHT'} 0${i+1}</span><strong>${level.name}</strong><span>${level.subtitle}</span><small>${level.mode === 'training' ? level.card : level.menu.length + ' 道菜 · ' + level.woks + ' 口炒鍋'}</small><span class="level-stars" aria-label="最佳 ${record.stars} 星">${'★'.repeat(record.stars)}${'☆'.repeat(3-record.stars)}</span><small>${selectedChef && level.mode !== 'training' ? (chefRow?.runs ? `主廚卡紀錄 $${chefRow.revenue}（${esc(chefRow.chef?.nickname || 'Alex')}）` : '主廚卡紀錄 · 尚未挑戰') : record.runs || record.revenue ? (level.mode === 'training' ? '已完成 ' + record.runs + ' 次' : '最佳營收 $'+record.revenue) : '尚未完成 · 歡迎挑戰'}</small></button>`;
     }).join('');
     if (!available.length) {
       $('level-description').textContent = '籌備中'; $('level-goals').textContent = ''; $('level-timing').textContent = ''; $('start').textContent = '尚未開放'; return;
@@ -93,7 +202,7 @@
       const r = RECIPES[key];
       return `<div class="recipe"><img class="dish-art" src="assets/${key}.svg" alt="${r.name}" width="64" height="52"><div><strong>${r.name} <em>$${r.price}</em></strong><p>${r.ingredients.map(i => ITEMS[i].name).join(' ＋ ')}</p><small>每份各需上述材料 · 最多 3 份<br>炒 1／2／3 份：${[1,1.4,1.8].map(n => +(r.cookTime*n).toFixed(1)).join("／")} 秒</small></div></div>`;
     }).join('');
-    $('current-level').textContent = '單人料理遊戲 · ' + game.level.name;
+    $('current-level').textContent = '單人料理遊戲 · ' + game.level.name + (game.chef && (game.level.mode !== 'training' || game.chef.exam) ? ' · 主廚 ' + game.chef.nickname : '');
     $('kitchen-title').textContent = game.level.name + ' · 今晚，你是總舖師';
     $('orders-title').textContent = game.level.mode === 'training' ? game.level.ordersTitle : '點菜單';
     $('orders-subtitle').textContent = game.level.mode === 'training' ? game.level.ordersSubtitle : '熱騰騰上桌，客人就開心。';
@@ -112,7 +221,7 @@
   function showSelection() {
     selectedCourse = courseFor(game.level);
 
-    running = false; ended = false; clearInput(); target = null; game.reset(selectedLevel); art.reset();
+    running = false; ended = false; clearInput(); target = null; game.reset(selectedLevel, null); art.reset(); careerOpen = false; $('career').classList.add('hidden');
     player = createPlayer();
     $('paused').classList.add('hidden'); $('results').classList.add('hidden'); $('welcome').classList.remove('hidden'); $('overlay').classList.remove('hidden'); updatePauseLabel(); syncPlayChrome();
     $('toast').textContent = ''; $('toast').classList.remove('show'); toastUntil = 0;
@@ -126,8 +235,13 @@
   };
   function start() {
     if (!LEVELS.some(l => courseFor(l) === selectedCourse)) return;
-    try { audio ||= new (window.AudioContext || window.webkitAudioContext)(); audio.resume().catch(() => {}); } catch (_) { /* Audio is optional. */ }
-    game.reset(selectedLevel); art.reset(); player = createPlayer(); clearInput(); running = true; ended = false; target = null;
+    const card = LEVELS.find(l => l.id === selectedLevel).mode === 'training' ? null : careerSave.card(selectedChef);
+    beginShift(card ? { kind: 'chef', level: selectedLevel, chef: card } : { kind: 'standard', level: selectedLevel, chef: null });
+  }
+  function beginShift(next) {
+    session = next; selectedLevel = next.level; selectedCourse = courseFor(LEVELS.find(l => l.id === next.level));
+    sfx.resume();
+    game.reset(selectedLevel, session.chef); art.reset(); player = createPlayer(); clearInput(); running = true; ended = false; target = null;
     $('overlay').classList.add('hidden'); updatePauseLabel(); syncPlayChrome(); last = performance.now();
     canvas.focus({ preventScroll: true }); renderMenu();
     showToast(game.level.mode === 'training' ? game.level.toast : game.level.woks === 1 ? '先去左上方青菜箱按 E 拿菜，再到砧板備料。' : `${game.level.name}：兩口鍋各自計時，先備好料再開火。`, 'done'); updateHUD();
@@ -139,12 +253,15 @@
     updatePauseLabel(); syncPlayChrome();
     if (game.paused) $('resume').focus(); else canvas.focus({ preventScroll: true });
   }
-  $('start').onclick = start; $('restart').onclick = start; $('restart-pause').onclick = start;
+  $('start').onclick = start; $('restart').onclick = () => beginShift(session); $('restart-pause').onclick = () => beginShift(session);
   $('pause').onclick = () => pause(); $('resume').onclick = () => pause(false);
   $('choose-pause').onclick = showSelection; $('choose-results').onclick = showSelection;
-  $('next-level').onclick = () => { const next = nextLevel(); if (next) { selectedLevel = next.id; selectedCourse = courseFor(next); start(); } };
+  $('next-level').onclick = () => {
+    if (session.kind === 'exam' || session.kind === 'quiz') { showSelection(); openCareer(); return; }
+    const next = nextLevel(); if (next) beginShift({ ...session, level: next.id });
+  };
   $('open-early').onclick = () => { if (running && !game.paused) { game.startService(); drainEvents(); updateHUD(); } };
-  $('sound').onclick = () => { muted = !muted; $('sound').textContent = '音效 ' + (muted ? '關' : '開'); };
+  $('sound').onclick = () => { sfx.muted = !sfx.muted; $('sound').textContent = '音效 ' + (sfx.muted ? '關' : '開'); };
   function syncInputKeys() {
     const live = new Set(keyboardKeys);
     for (const hold of pointerHolds.values()) live.add(hold.key);
@@ -260,6 +377,7 @@
   document.addEventListener('gesturestart', event => { if (running && !game.paused && !ended) event.preventDefault(); });
   addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
+    if (careerOpen) { if (key === 'escape' && !e.repeat) { e.preventDefault(); closeCareer(); } return; }
     if (originOpen) {
       if (['escape', 'enter', ' ', 'arrowright', 'arrowleft'].includes(key)) {
         if (['enter', ' '].includes(key) && ['origin-close', 'origin-prev'].includes(document.activeElement?.id)) return;
@@ -302,7 +420,7 @@
     if (w.state === 'loading') return HotStirFry.recipeFor(w.ingredients, game.level.menu) ? `F 炒 ${portionsFor(w.ingredients)} 份 · E 加料（最多 3 份）` : game.missingIngredients(s.id) + ' · E 加料／空手按住 F 清空';
     if (w.state === 'ready') return `剩 ${w.remaining} 份 · 拿空盤按 E 盛 1 份！`;
     if (w.state === 'burned') return '空手按住 F 清理燒焦炒鍋';
-    return w.flipped ? '翻炒完成，等待起鍋' : 'F 翻炒 · 在進度 40%～85% 時操作';
+    return w.flipped ? '翻炒完成，等待起鍋' : `F 翻炒 · 在進度 ${flipWindowText(game.mods)} 時操作`;
   }
   function updateHUD() {
     const labels = { prep:'備料時間', service:'營業中', closing:'最後出菜', ended:'今晚打烊' };
@@ -314,13 +432,13 @@
     $('order-count').textContent = `${game.orders.length} / ${game.level.maxOrders}`;
     $('orders').innerHTML = game.orders.map(o => { const r = RECIPES[o.recipe]; return `<article class="order ${o.remaining < 20 ? 'urgent' : ''}"><div class="order-head"><span>第 ${o.table} 桌 · #${String(o.id).padStart(2,'0')}</span><b>$${r.price}</b></div><h3>${r.name}</h3><p>${r.ingredients.map(i => ITEMS[i].name).join(' ＋ ')}</p><div class="order-bottom"><span>${o.remaining < 20 ? '客人等得有點急了' : '客人耐心'}</span><span>${Math.ceil(o.remaining)} 秒</span></div><div class="progress-track"><i style="width:${Math.max(0,o.remaining/o.total*100)}%"></i></div></article>`; }).join('') || `<div class="empty-orders">${game.phase === 'prep' ? '客人還沒到<br>先準備一些切好的食材吧。' : '目前沒有待做的菜<br>趁現在整理一下廚房。'}</div>`;
     const woks = Object.values(game.woks);
-    $('tip').textContent = woks.some(w => w.state === 'ready') ? '餐盤架在炒爐下方。拿空盤，回到完成的鍋按 E 盛裝，再送到右側出餐口。' : woks.some(w => w.state === 'cooking') ? '每口鍋獨立計時。看下方鍋況，在 40%～85% 進度回來按 F 翻炒，品質獎勵 +10%。' : '青菜、蔥、牛肉和雞肉要先切。雞蛋、白飯、九層塔與三杯醬可直接下鍋。';
+    $('tip').textContent = woks.some(w => w.state === 'ready') ? '餐盤架在炒爐下方。拿空盤，回到完成的鍋按 E 盛裝，再送到右側出餐口。' : woks.some(w => w.state === 'cooking') ? `每口鍋獨立計時。看下方鍋況，在 ${flipWindowText(game.mods)} 進度回來按 F 翻炒，品質獎勵 +${Math.round(game.mods.qualityBonus * 100)}%。` : '青菜、蔥、牛肉和雞肉要先切。雞蛋、白飯、九層塔與三杯醬可直接下鍋。';
     $('wok-status').innerHTML = Object.entries(game.woks).map(([id, w], i) => {
       const dish = w.recipe ? RECIPES[w.recipe].name : '';
       let state = '空鍋 · 等待食材';
       if (w.state === 'loading') state = HotStirFry.recipeFor(w.ingredients, game.level.menu) ? `${game.missingIngredients(id)} · F 開火` : game.missingIngredients(id);
-      if (w.state === 'cooking') { const p = w.elapsed/cookDuration(w); state = `${dish} ×${w.portions} · ${Math.ceil(cookDuration(w)-w.elapsed)} 秒${w.flipped ? ' · 已翻炒' : p >= .4 && p <= .85 ? ' · F 翻炒！' : ''}`; }
-      if (w.state === 'ready') state = `${dish} · 剩 ${w.remaining} 份 · ${Math.ceil(8-w.readyTime)} 秒內盛裝！`;
+      if (w.state === 'cooking') { const p = w.elapsed/cookDuration(w); state = `${dish} ×${w.portions} · ${Math.ceil(cookDuration(w)-w.elapsed)} 秒${w.flipped ? ' · 已翻炒' : p >= game.mods.flipStart && p <= game.mods.flipEnd ? ' · F 翻炒！' : ''}`; }
+      if (w.state === 'ready') state = `${dish} · 剩 ${w.remaining} 份 · ${Math.ceil(game.mods.burnTime-w.readyTime)} 秒內盛裝！`;
       if (w.state === 'burned') state = '燒焦 · 空手按住 F 清鍋';
       return `<div class="wok-chip ${w.state}"><b>${i+1} 號鍋</b><span>${state}</span></div>`;
     }).join('');
@@ -332,26 +450,61 @@
       $('order-count').textContent = `${game.served} / ${total} 份`;
       $('orders').innerHTML = game.level.goals.map(g => `<article class="order"><h3>${ITEMS[g.id].name}</h3><p>已驗收 ${game.delivered[g.id] || 0} / ${g.count} 份</p></article>`).join('');
       $('tip').textContent = game.level.tip;
+      if (session.kind === 'quiz') {
+        const left = Math.ceil(Math.max(0, session.quiz.limit - game.clock));
+        $('phase-label').textContent = session.quiz.name; $('clock').textContent = `${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}`;
+        $('phase-note').textContent = `${session.quiz.par[1]} 秒內完成 3 星 · 限時 ${session.quiz.limit} 秒`;
+      }
     }
   }
   function finish() {
     ended = true; clearInput(); updatePauseLabel(); syncPlayChrome();
-    const stars = game.level.mode === 'training' ? 3 : starCount(game.revenue, game.level);
-    const record = progress.record(game.level.id, game.revenue, stars);
+    const completed = game.level.mode === 'training' && game.level.goals.every(g => game.delivered[g.id] === g.count);
+    const stars = session.kind === 'quiz' ? Career.quizStars(session.quiz, completed, game.clock) : game.level.mode === 'training' ? 3 : starCount(game.revenue, game.level);
+    const record = session.kind === 'standard' ? progress.record(game.level.id, game.revenue, stars) : null;
     $('stars').textContent = '★'.repeat(stars) + '☆'.repeat(3-stars);
     $('result-level').textContent = game.level.name + ' · 營業結算';
     $('result-message').textContent = stars >= 2 ? '巷口飄著鍋氣，客人帶著笑意回家。' : stars === 1 ? '成功站穩腳步，下一晚再挑戰更高營收。' : `辛苦了！再挑戰一次，營收達 $${game.level.stars[0]} 就能拿到第一顆星。`;
     $('result-stats').innerHTML = [['今晚收入', '$'+game.revenue],['成功上菜',game.served+' 道'],['逾時訂單',game.expired+' 道'],['客人滿意度',game.satisfaction+'%'],['成功翻炒',game.flips+' 次'],['燒焦 / 丟棄',game.burned+' / '+game.wasted+' 次']].map(([a,b])=>`<div><span>${a}</span><strong>${b}</strong></div>`).join('');
-    $('best-record').textContent = `本關最佳 $${record.revenue} · 最佳 ${record.stars} 星 · 完成 ${record.runs} 次`;
-    if (game.level.mode === 'training') {
+    if (record) $('best-record').textContent = `本關最佳 $${record.revenue} · 最佳 ${record.stars} 星 · 完成 ${record.runs} 次`;
+    if (game.level.mode === 'training' && record) {
       $('result-level').textContent = game.level.resultTitle; $('result-message').textContent = game.level.resultMessage;
       $('result-stats').innerHTML = `<p>${goalText(game.level)}，驗收完成。</p>`;
       $('best-record').textContent = `已完成 ${record.runs} 次 · 三星結業`;
     }
-    const next = nextLevel();
-    $('next-level').classList.toggle('hidden', !next);
+    if (session.kind === 'chef') {
+      const row = careerSave.record(game.level.id, session.chef, game.revenue, stars);
+      $('best-record').textContent = `主廚卡紀錄 $${row.revenue} · 最佳 ${row.stars} 星 · 完成 ${row.runs} 次（${row.chef.nickname}）· 標準紀錄不變`;
+    }
+    const career = session.kind === 'exam' || session.kind === 'quiz';
+    const next = career ? null : nextLevel();
+    $('next-level').classList.toggle('hidden', !next && !career);
+    $('restart').classList.toggle('hidden', career);
     if (next) $('next-level').textContent = `挑戰「${next.name}」 →`;
-    $('welcome').classList.add('hidden'); $('paused').classList.add('hidden'); $('results').classList.remove('hidden'); $('overlay').classList.remove('hidden'); sound('serve'); updateHUD(); (next ? $('next-level') : $('restart')).focus();
+    if (session.kind === 'exam') {
+      const result = Career.settleExam(careerSave.run, session.examId, game.revenue, stars);
+      careerSave.save();
+      $('result-level').textContent = '結業考 · 營業結算';
+      $('result-message').textContent = result ? `結業稱號「${result.title}」，全能力 +${result.bonus}。去看看你的主廚卡吧！` : '這場結業考已經結算過了。';
+      $('best-record').textContent = '結業考成績不列入營業紀錄。';
+      $('next-level').textContent = '查看主廚卡 →';
+    }
+    if (session.kind === 'quiz') {
+      const result = Career.settleQuiz(careerSave.run, session.quizId, stars), time = Math.min(game.clock, session.quiz.limit);
+      careerSave.save();
+      $('result-level').textContent = session.quiz.name + ' · 結算';
+      $('result-message').textContent = !result ? '這場小考已經結算過了。' : !completed ? '時間到！沒關係，阿明說下次再加油。打工繼續。' : `阿明：做得好！${Career.STAT_NAMES[session.quiz.stat]} +${result.bonus}。`;
+      $('result-stats').innerHTML = [['完成時間', completed ? time.toFixed(1) + ' 秒' : '未完成'], ['已驗收', game.served + ' / ' + game.level.goals.reduce((sum, g) => sum + g.count, 0) + ' 份']].map(([a,b])=>`<div><span>${a}</span><strong>${b}</strong></div>`).join('');
+      $('best-record').textContent = '小考成績不列入學習紀錄。';
+      $('next-level').textContent = '回到打工日記 →';
+    }
+    $('welcome').classList.add('hidden'); $('paused').classList.add('hidden'); $('results').classList.remove('hidden'); $('overlay').classList.remove('hidden'); sound('serve'); updateHUD(); (next || career ? $('next-level') : $('restart')).focus();
+  }
+  // A knife tap every few frames while F is held on a board that still has raw food.
+  function chopSound(dt) {
+    const board = target?.type === 'board' && keys.has('f') && !game.held && target.item && ITEMS[target.item.id].processed;
+    chopTimer = board ? chopTimer + dt : 0;
+    if (chopTimer >= .2) { chopTimer = 0; sound('chop'); }
   }
   function draw() {
     art.draw(game, player, target, keys, running, ended);
@@ -359,7 +512,9 @@
   }
   function frame(now){
     const dt=Math.min((now-last)/1000,.25);last=now;
-    if(running&&!game.paused&&!ended){move(dt);game.tick(dt,keys.has('f')&&target?target.id:null);drainEvents();if(game.phase==='ended')finish();hudTimer+=dt;if(hudTimer>.15){updateHUD();hudTimer=0;}}
+    const active=running&&!game.paused&&!ended;
+    if(active){move(dt);game.tick(dt,keys.has('f')&&target?target.id:null);drainEvents();art.observe(game);chopSound(dt);if(session.kind==='quiz'&&game.clock>=session.quiz.limit)game.finish();if(game.phase==='ended')finish();hudTimer+=dt;if(hudTimer>.15){updateHUD();hudTimer=0;}}
+    sfx.ambience(active?Object.values(game.woks).filter(w=>w.state==='cooking').length:0,active&&(game.phase==='service'||game.phase==='closing'));
     art.update(dt, !game.paused && !ended);
     if(now>toastUntil)$('toast').classList.remove('show');draw();requestAnimationFrame(frame);
   }

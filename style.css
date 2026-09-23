@@ -103,6 +103,57 @@ aside { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c6ceba transp
 .course-tabs button.selected { background:#295747; color:#fff9ea; }
 #start:disabled { opacity:.5; cursor:default; }
 
+/* Career mode: weekly choices, stat meters and chef cards. */
+.welcome-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 22px; margin-bottom: 10px; }
+.welcome-links .origin-open { margin: 0; }
+.career-modal { width: min(720px, 94vw); max-width: 720px; max-height: calc(100dvh - 36px); overflow-y: auto; text-align: left; }
+.career-modal > .modal-kicker, .career-modal > h2, .career-week { text-align: center; }
+.career-week { margin: -6px 0 14px; color: #a0804f; font-size: 13px; letter-spacing: 2px; }
+.career-status { padding: 12px 14px; border-radius: 10px; background: #eeefe4; }
+.stat-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px 18px; }
+.stat-row { display: grid; grid-template-columns: 36px 1fr 28px; align-items: center; gap: 8px; font-size: 12px; color: #4c6152; }
+.stat-row b { text-align: right; font-size: 12px; }
+.meter { height: 8px; border-radius: 4px; background: #d8dccb; overflow: hidden; }
+.meter i { display: block; height: 100%; background: linear-gradient(90deg, #d9a54f, #d65c36); border-radius: 4px; }
+.career-message { min-height: 1.6em; margin: 12px 0 6px; color: #7b5a33; font-size: 13px; line-height: 1.7; }
+.career-actions, .career-choices, .career-slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.career-option { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 13px 14px; border: 1px solid #d3d8c6; border-radius: 10px; background: #f4f0e3; color: #4c6152; text-align: left; }
+.career-option:hover { background: #e7eada; }
+.career-option.selected { background: #e2ead8; border: 2px solid #65815c; padding: 12px 13px; }
+.career-option strong { font-size: 15px; color: #304d3d; }
+.career-option span { font-size: 12px; line-height: 1.6; }
+.career-option small, .career-warn { color: #b0532f; font-size: 11px; }
+.career-warn { display: block; margin: 10px 0 6px; }
+.career-note, .career-empty, .career-intro p, .career-exam p { font-size: 13px; line-height: 1.8; color: #5f6c5b; }
+.career-heading, .career-exam h3 { font-size: 15px; color: #304d3d; margin: 20px 0 10px; }
+.career-exam small, .chef-card small { display: block; margin: 10px 0 14px; font-size: 11px; color: #968664; line-height: 1.6; }
+.career-scene { margin: 6px 0 12px; }
+.career-scene strong { font-size: 18px; letter-spacing: 2px; }
+.career-choices { margin-top: 14px; }
+.career-result { text-align: center; }
+.career-result .stars { font-size: 26px; letter-spacing: 4px; color: #bb8b3b; }
+.career-result p { font-size: 13px; color: #5f6c5b; margin: 4px 0 12px; }
+.chef-cards { display: grid; gap: 10px; }
+.chef-card { padding: 14px 16px 2px; border-radius: 12px; background: #fff9e9; border: 3px double #c9ae7c; }
+.chef-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.chef-card-head strong { font-size: 17px; color: #995535; }
+.chef-card-head span { font-size: 12px; padding: 2px 10px; border-radius: 10px; background: #295747; color: #fff9ea; }
+.career-name { display: flex; flex-direction: column; gap: 6px; margin: 14px 0 0; font-size: 12px; color: #5f6c5b; }
+.career-name input { font: inherit; font-size: 15px; padding: 10px 12px; border: 1px solid #bdcbb6; border-radius: 8px; background: #fffdf5; color: var(--ink); }
+.career-card-actions { margin-top: 14px; }
+.career-card-actions:empty { display: none; }
+.career-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 0 22px; }
+.career-links .text-button { margin: 17px 0 0; }
+.career-modal .modal-foot { text-align: center; }
+.chef-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 8px 0; }
+.chef-picker-label { font-size: 11px; letter-spacing: 2px; color: #a0804f; }
+.chef-picker button { display: flex; flex-direction: column; align-items: flex-start; padding: 7px 12px; border: 1px solid #bdcbb6; border-radius: 8px; background: #f4f0e3; color: #365847; font-size: 13px; }
+.chef-picker button small { font-size: 10px; color: #968664; }
+.chef-picker button.selected { background: #295747; color: #fff9ea; }
+.chef-picker button.selected small { color: #e8d9ae; }
+.chef-picker p { flex-basis: 100%; margin: 2px 0 0; font-size: 11px; color: #968664; }
+@media (max-width: 520px) { .career-modal { padding: 18px 16px; } .stat-bars, .career-actions, .career-choices, .career-slots { grid-template-columns: 1fr; } }
+
 /* On-screen controls. Same E / hold-F channel as the keyboard. */
 html, body { overscroll-behavior: none; }
 body.touch-active { touch-action: manipulation; }

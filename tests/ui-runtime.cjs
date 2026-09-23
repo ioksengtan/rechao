@@ -6,6 +6,8 @@ const vm = require('node:vm');
 const core = require('../game-core.js');
 const movement = require('../movement.js');
 const progress = require('../progress.js');
+const career = require('../career.js');
+const audio = require('../audio.js');
 const art = require('../art.js');
 
 function classListFor(classes) {
@@ -22,7 +24,9 @@ function classListFor(classes) {
 }
 
 function runtime(options = {}) {
-  const nodes = {}, events = {}, records = new Map();
+  const records = options instanceof Map ? options : new Map();
+  const settings = options instanceof Map ? {} : options;
+  const nodes = {}, events = {};
   let frame, now = 0, game, player;
   const context2d = new Proxy({}, { get: (target, key) => target[key] || (() => {}), set: (target, key, value) => (target[key] = value, true) });
   const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
@@ -31,7 +35,7 @@ function runtime(options = {}) {
     const listeners = {};
     const attrs = {};
     nodes[match[1]] = {
-      id: match[1], textContent: '', innerHTML: '', disabled: false, hidden: false, dataset: {}, attrs, listeners,
+      id: match[1], textContent: '', innerHTML: '', value: '', placeholder: '', disabled: false, hidden: false, dataset: {}, attrs, listeners,
       focus() {}, getContext: () => context2d, querySelector: () => ({ focus() {} }),
       classList: classListFor(classes),
       addEventListener(name, cb) { (listeners[name] ||= []).push(cb); },
@@ -53,8 +57,8 @@ function runtime(options = {}) {
       addEventListener: (name, cb) => { events[name] = cb; },
       elementFromPoint() { return null; }
     },
-    navigator: { maxTouchPoints: options.touch ? 1 : 0 },
-    matchMedia: query => ({ matches: !!(options.coarse && /pointer:\s*coarse/.test(query)) || !!(options.narrow && /max-width:\s*820px/.test(query)) }),
+    navigator: { maxTouchPoints: settings.touch ? 1 : 0 },
+    matchMedia: query => ({ matches: !!(settings.coarse && /pointer:\s*coarse/.test(query)) || !!(settings.narrow && /max-width:\s*820px/.test(query)) }),
     addEventListener: (name, cb) => { events[name] = cb; },
     requestAnimationFrame: cb => { frame = cb; },
     performance: { now: () => now },
@@ -62,6 +66,8 @@ function runtime(options = {}) {
     HotStirFry: { ...core, Kitchen: class extends core.Kitchen { constructor() { super(); game = this; } } },
     HotStirFryMovement: { ...movement, createPlayer() { player = movement.createPlayer(); return player; } },
     HotStirFryProgress: progress,
+    HotStirFryCareer: career,
+    HotStirFryAudio: audio,
     HotStirFryArt: art,
   };
   scope.window = scope;
@@ -71,6 +77,7 @@ function runtime(options = {}) {
     frame() { now += 1000 / 60; frame(now); },
     frames(count) { for (let i = 0; i < count; i++) api.frame(); },
     select(level) { nodes['level-list'].onclick({ target: { closest: () => ({ dataset: { level } }) } }); },
+    click(id, dataset) { nodes[id].onclick({ target: { closest: () => ({ dataset }) } }); },
     press(key) { events.keydown({ key, repeat: false, preventDefault() {} }); },
     release(key) { events.keyup({ key }); },
     pointer(id, type, pointerId = 1) {
