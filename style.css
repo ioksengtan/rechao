@@ -188,6 +188,15 @@ body.touch-active .icon-button, body.touch-active .small-action { min-height: 44
     box-shadow: 0 -10px 28px #10241fcc;
   }
   body.touch-active .app { padding-bottom: calc(220px + env(safe-area-inset-bottom)); }
+  body.touch-active #open-early:not(.hidden) {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    bottom: calc(200px + env(safe-area-inset-bottom));
+    z-index: 7;
+    margin: 0;
+  }
   body.touch-active .control-bar { display: none; }
   body.touch-active #interaction { max-width: 92%; bottom: 10px; }
   body.touch-active .masthead { margin-bottom: 10px; }

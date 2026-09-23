@@ -38,7 +38,8 @@ function runtime(options = {}) {
       removeEventListener() {},
       setPointerCapture() {}, releasePointerCapture() {},
       setAttribute(name, value) { attrs[name] = String(value); },
-      getAttribute(name) { return attrs[name]; }
+      getAttribute(name) { return attrs[name]; },
+      closest() { return { addEventListener() {}, closest() { return null; }, classList: classListFor(new Set()) }; }
     };
   }
   const bodyClasses = new Set();

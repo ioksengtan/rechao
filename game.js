@@ -129,7 +129,7 @@
     try { audio ||= new (window.AudioContext || window.webkitAudioContext)(); audio.resume().catch(() => {}); } catch (_) { /* Audio is optional. */ }
     game.reset(selectedLevel); art.reset(); player = createPlayer(); clearInput(); running = true; ended = false; target = null;
     $('overlay').classList.add('hidden'); updatePauseLabel(); syncPlayChrome(); last = performance.now();
-    canvas.focus(); renderMenu();
+    canvas.focus({ preventScroll: true }); renderMenu();
     showToast(game.level.mode === 'training' ? game.level.toast : game.level.woks === 1 ? '先去左上方青菜箱按 E 拿菜，再到砧板備料。' : `${game.level.name}：兩口鍋各自計時，先備好料再開火。`, 'done'); updateHUD();
   }
   function pause(force) {
@@ -137,7 +137,7 @@
     game.paused = typeof force === 'boolean' ? force : !game.paused; clearInput();
     $('overlay').classList.toggle('hidden', !game.paused); $('welcome').classList.add('hidden'); $('results').classList.add('hidden'); $('paused').classList.remove('hidden');
     updatePauseLabel(); syncPlayChrome();
-    if (game.paused) $('resume').focus(); else canvas.focus();
+    if (game.paused) $('resume').focus(); else canvas.focus({ preventScroll: true });
   }
   $('start').onclick = start; $('restart').onclick = start; $('restart-pause').onclick = start;
   $('pause').onclick = () => pause(); $('resume').onclick = () => pause(false);
@@ -213,7 +213,12 @@
   touchRoot.addEventListener('pointercancel', releasePointer);
   touchRoot.addEventListener('contextmenu', event => event.preventDefault());
   touchRoot.addEventListener('touchstart', event => event.preventDefault(), { passive: false });
-  canvas.addEventListener('touchstart', event => { if (running && !game.paused && !ended) event.preventDefault(); }, { passive: false });
+  canvas.closest('.kitchen-panel').addEventListener('pointerdown', event => {
+    if (running && !game.paused && !ended && !event.target.closest('#touch-controls')) event.preventDefault();
+  });
+  canvas.closest('.kitchen-panel').addEventListener('touchstart', event => {
+    if (running && !game.paused && !ended) event.preventDefault();
+  }, { passive: false });
   function syncPlayChrome() { document.body.classList.toggle('playing', running && !game.paused && !ended); }
   function updatePauseLabel() {
     const esc = document.body.classList.contains('touch-active') ? '' : ' Esc';
