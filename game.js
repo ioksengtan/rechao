@@ -208,7 +208,8 @@
     $('orders-subtitle').textContent = game.level.mode === 'training' ? game.level.ordersSubtitle : '熱騰騰上桌，客人就開心。';
     $('menu-title').textContent = game.level.mode === 'training' ? '師傅示範' : '今晚菜單';
     if (game.level.mode === 'training') { $('menu-count').textContent = game.level.stepLabel; $('recipe-list').innerHTML = `<p class="intro">${game.level.steps}</p>`; }
-    $('shift-title').textContent = `${game.level.name} / NIGHT 0${LEVELS.indexOf(game.level)+1}`;
+    const nightNumber = (game.level.mode === 'training' ? LEVELS.indexOf(game.level) : LEVELS.filter(l => !l.mode).indexOf(game.level)) + 1;
+    $('shift-title').textContent = `${game.level.name} / NIGHT 0${nightNumber}`;
   }
   $('course-tabs').onclick = event => {
     const button = event.target.closest('[data-course]');

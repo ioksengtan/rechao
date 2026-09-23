@@ -74,6 +74,7 @@
     resultTitle: '果汁課完成', resultMessage: '阿明：飲料都準備好了！接下來可以挑戰第一晚開張。',
     reject: '阿明：請交調好的冰檸檬汁或冰梅子汁。'
   }));
+  LEVELS.push({ id: 'lunch', course: 'service', name: '午休小局', subtitle: '通勤一局，十分鐘內打烊', description: '菜單跟第一晚一樣，但時間更短。適合手機上快速打一局。', menu: ['greens', 'rice'], woks: 1, prepTime: 10, serviceTime: 90, closingTime: 30, maxOrders: 2, orderInterval: 14, plateCount: 4, stars: [80, 200, 450], firstOrders: ['greens', 'rice'] });
   const STATIONS = [
     { id: 'greens', type: 'supply', supply: 'greens', x: 1, y: 1, name: '青菜箱' },
     { id: 'egg', type: 'supply', supply: 'egg', x: 3, y: 1, name: '雞蛋箱' },
