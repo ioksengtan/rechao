@@ -17,11 +17,27 @@
     chicken: { name: '三杯雞', ingredients: ['choppedChicken', 'basil', 'sauce'], cookTime: 10, price: 220, patience: 120, dish: 'chickenDish' }
   };
   const LEVELS = [
-    { id: 'opening', name: '第一晚開張', subtitle: '先學一手好菜', description: '兩道經典、一口炒鍋。從切料到上菜，找到自己的節奏。', menu: ['greens', 'rice'], woks: 1, prepTime: 20, serviceTime: 180, closingTime: 45, maxOrders: 2, orderInterval: 18, plateCount: 4, stars: [160, 450, 900], firstOrders: ['greens', 'rice'] },
-    { id: 'rush', name: '晚餐尖峰', subtitle: '雙鍋開火的考驗', description: '加入蔥爆牛肉與第二口炒鍋。備好料，再輪流照顧兩鍋。', menu: ['greens', 'rice', 'beef'], woks: 2, prepTime: 25, serviceTime: 180, closingTime: 45, maxOrders: 3, orderInterval: 16, plateCount: 5, stars: [320, 800, 1350], firstOrders: ['beef', 'greens'] },
-    { id: 'friday', name: '滿座週五夜', subtitle: '今晚，四道拿手菜', description: '三杯雞壓軸登場！三張訂單同時催菜，安排好每一鍋的火候。', menu: ['greens', 'rice', 'beef', 'chicken'], woks: 2, prepTime: 30, serviceTime: 180, closingTime: 45, maxOrders: 3, orderInterval: 14, plateCount: 6, stars: [450, 1050, 1700], firstOrders: ['chicken', 'beef', 'greens'] }
+    { id: 'opening', course: 'service', name: '第一晚開張', subtitle: '先學一手好菜', description: '兩道經典、一口炒鍋。從切料到上菜，找到自己的節奏。', menu: ['greens', 'rice'], woks: 1, prepTime: 20, serviceTime: 180, closingTime: 45, maxOrders: 2, orderInterval: 18, plateCount: 4, stars: [160, 450, 900], firstOrders: ['greens', 'rice'] },
+    { id: 'rush', course: 'service', name: '晚餐尖峰', subtitle: '雙鍋開火的考驗', description: '加入蔥爆牛肉與第二口炒鍋。備好料，再輪流照顧兩鍋。', menu: ['greens', 'rice', 'beef'], woks: 2, prepTime: 25, serviceTime: 180, closingTime: 45, maxOrders: 3, orderInterval: 16, plateCount: 5, stars: [320, 800, 1350], firstOrders: ['beef', 'greens'] },
+    { id: 'friday', course: 'service', name: '滿座週五夜', subtitle: '今晚，四道拿手菜', description: '三杯雞壓軸登場！三張訂單同時催菜，安排好每一鍋的火候。', menu: ['greens', 'rice', 'beef', 'chicken'], woks: 2, prepTime: 30, serviceTime: 180, closingTime: 45, maxOrders: 3, orderInterval: 14, plateCount: 6, stars: [450, 1050, 1700], firstOrders: ['chicken', 'beef', 'greens'] }
   ];
-  LEVELS.push({ id: 'prep-school', mode: 'training', name: '開店前的備料課', subtitle: '認識砧板與批次切料', description: '阿明：慢慢來！拿取食材，放上砧板，空手按住 F 切好，再送到右側驗收檯。', menu: ['greens', 'rice'], woks: 0, prepTime: 0, serviceTime: 0, closingTime: 0, maxOrders: 0, orderInterval: 0, plateCount: 0, stars: [], firstOrders: [], goals: [{id:'choppedGreens', count:3}, {id:'choppedScallion', count:2}] });
+  function lesson(spec) {
+    return Object.assign({
+      mode: 'training', menu: [], woks: 0, prepTime: 0, serviceTime: 0, closingTime: 0, maxOrders: 0, orderInterval: 0, plateCount: 0, stars: [], firstOrders: [],
+      stepLabel: '3 個步驟', ordersSubtitle: '交到右側驗收檯，不需要盤子。'
+    }, spec);
+  }
+  LEVELS.push(lesson({
+    id: 'prep-school', course: 'prep', name: '開店前的備料課', subtitle: '認識砧板與批次切料', description: '阿明：慢慢來！拿取食材，放上砧板，空手按住 F 切好，再送到右側驗收檯。',
+    menu: ['greens', 'rice'], stations: ['greens', 'scallion', 'board', 'counter', 'serve', 'trash'], goals: [{ id: 'choppedGreens', count: 3 }, { id: 'choppedScallion', count: 2 }],
+    card: '不限時 · 切料與批次處理', timing: '不限時 · 無客人催單 · 完成清單即可過關',
+    toast: '阿明：先 E 拿青菜，放砧板後空手按住 F。切好送到右側驗收檯！',
+    steps: '① E 拿青菜或蔥，E 放上砧板。可重複加入同種食材，最多 3 份。<br>② 空手按住 F 切好，再按 E 整批拿起。<br>③ 到右側驗收檯按 E 交付。備料檯可以暫存或交換物品。',
+    tip: '同種食材可一起切，最多 3 份。按 E 交付時只收需要的份數，多的留在手上。',
+    phaseLabel: '備料練習', phaseNote: '阿明：不趕時間，先認識食材與砧板。', ordersTitle: '備料清單', ordersSubtitle: '切好後交到右側驗收檯，不需要盤子。',
+    resultTitle: '備料課完成', resultMessage: '阿明：食材都備好了！接下來可以挑戰第一晚開張。',
+    reject: '阿明：請交切好的青菜或蔥，生食材要先到砧板處理。'
+  }));
   const STATIONS = [
     { id: 'greens', type: 'supply', supply: 'greens', x: 1, y: 1, name: '青菜箱' },
     { id: 'egg', type: 'supply', supply: 'egg', x: 3, y: 1, name: '雞蛋箱' },
@@ -54,9 +70,9 @@
   const chopDuration = item => 2 * (1 + .4 * ((item?.count || 1) - 1));
   const emptyWok = () => ({ state: 'empty', ingredients: [], portions: 0, remaining: 0, elapsed: 0, recipe: null, flipped: false, readyTime: 0, clearProgress: 0 });
   function getStations(level) {
-    if (level.mode === 'training') return STATIONS.filter(s => ['greens','scallion','board','counter','serve','trash'].includes(s.id)).map(s => ({ ...s, name: s.id === 'serve' ? '驗收檯' : s.name, item: null, progress: 0 }));
+    if (level.mode === 'training') return STATIONS.filter(s => level.stations.includes(s.id)).map(s => ({ ...s, name: s.id === 'serve' ? '驗收檯' : s.name, item: null, progress: 0, ...(s.type === 'juice' ? { ingredients: [] } : {}) }));
     const ingredients = new Set(level.menu.flatMap(key => RECIPES[key].ingredients));
-    return STATIONS.filter(s => (!s.advanced || level.woks > 1) && (s.type !== 'supply' || ingredients.has(s.supply) || ingredients.has(ITEMS[s.supply].processed))).map(s => ({ ...s, item: null, progress: 0 }));
+    return STATIONS.filter(s => !s.training && (!s.advanced || level.woks > 1) && (s.type !== 'supply' || ingredients.has(s.supply) || ingredients.has(ITEMS[s.supply].processed))).map(s => ({ ...s, item: null, progress: 0 }));
   }
   function starCount(revenue, level) { return level.stars.filter(threshold => revenue >= threshold).length; }
   class Kitchen {
@@ -94,7 +110,7 @@
       } else if (s.type === 'board' || s.type === 'counter') {
         if (!this.held && s.item) { this.held = s.item; s.item = null; s.progress = 0; this.message('拿起' + ITEMS[this.held.id].name); }
         else if (this.held && !s.item) {
-          if (s.type === 'board' && !ITEMS[this.held.id].processed && !ITEMS[this.held.id].chopped) return this.message('砧板只放需要切的蔬菜或肉類，其他物品可放備料檯。');
+          if (s.type === 'board' && !ITEMS[this.held.id].processed && !ITEMS[this.held.id].chopped) return this.message(this.level.mode === 'training' && ITEMS[this.held.id].boardMessage || '砧板只放需要切的蔬菜或肉類，其他物品可放備料檯。');
           s.item = this.held; this.held = null; s.progress = 0; this.message(s.type === 'board' ? '放上砧板，空手按住 F 切料。' : '放到備料檯了。');
         } else if (this.held && s.item && s.type === 'counter') {
           [this.held, s.item] = [s.item, this.held];
@@ -163,7 +179,7 @@
       if (this.paused || this.phase === 'ended') return;
       if (this.level.mode === 'training') {
         const goal = this.level.goals.find(g => g.id === this.held?.id);
-        if (!goal) return this.message('阿明：請交切好的青菜或蔥，生食材要先到砧板處理。');
+        if (!goal) return this.message(this.level.reject || '阿明：這不是這堂課要的。');
         const needed = goal.count - (this.delivered[goal.id] || 0);
         if (needed <= 0) return this.message('阿明：這種食材已經足夠，看看另一張備料單。');
         const count = this.held.count || 1, accepted = Math.min(count, needed);
