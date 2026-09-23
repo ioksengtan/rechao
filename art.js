@@ -9,7 +9,7 @@
     floor: '#c9c6a5', floorAlt: '#d1cdb1', wood: '#c18e55'
   };
   function createRenderer(ctx, data) {
-    const { ITEMS, RECIPES, cookDuration, chopDuration } = data;
+    const { ITEMS, RECIPES, cookDuration, chopDuration, MIX_TIME } = data;
     const state = { clock: 0, effects: [], tosses: {}, gesture: null, tables: {} };
     function box(x, y, w, h, fill, radius = 0, stroke, lineWidth = 2) {
       ctx.beginPath(); ctx.roundRect(x, y, w, h, radius);
@@ -91,9 +91,23 @@
         }
       } else if (info.kind === 'basil') {
         for (let i = 0; i < 6; i++) leaf(Math.sin(i * 2) * 12, Math.cos(i * 2) * 8, i * 1.3, 8, i % 2 ? '#4f8655' : '#78a064');
-      } else if (info.kind === 'sauce') {
-        box(-11, -14, 22, 33, '#80503a', 5, P.ink, 1.5); box(-7, -21, 14, 9, '#b94535', 2, P.ink, 1.5);
-        box(-10, -3, 20, 16, '#edcd8f', 1); label('醬', 0, 5, 12, '#8d4c32'); line([[-7, -9], [-7, -5]], '#dba77c', 2);
+      } else if (info.kind === 'sauce' || info.kind === 'soy') {
+        const soy = info.kind === 'soy';
+        box(-11, -14, 22, 33, soy ? '#3e2a22' : '#80503a', 5, P.ink, 1.5); box(-7, -21, 14, 9, soy ? '#1f1612' : '#b94535', 2, P.ink, 1.5);
+        box(-10, -3, 20, 16, soy ? '#e6d2a2' : '#edcd8f', 1); label(soy ? '油' : '醬', 0, 5, 12, soy ? '#3e2a22' : '#8d4c32'); line([[-7, -9], [-7, -5]], soy ? '#c4a574' : '#dba77c', 2);
+      } else if (info.kind === 'lemon') {
+        oval(0, 0, 16, 16, '#e6b423', P.ink, 1.5); oval(0, 0, 12, 12, '#f8e7a0');
+        for (let i = 0; i < 6; i++) line([[0, 0], [Math.cos(i * Math.PI / 3) * 10, Math.sin(i * Math.PI / 3) * 10]], '#e6c14a', 1);
+      } else if (info.kind === 'syrup') {
+        box(-9, -10, 18, 28, '#e7b15a', 7, P.ink, 1.5); box(-5, -18, 10, 10, '#f3d9a0', 2, P.ink, 1.5); label('糖', 0, 4, 12, '#8a5424');
+      } else if (info.kind === 'ice') {
+        box(-16, -2, 12, 12, '#e7f7fb', 2, '#6eafbf', 1.5); box(-4, -10, 12, 12, '#d5f0f6', 2, '#6eafbf', 1.5); box(6, -4, 11, 11, '#f4fcff', 2, '#6eafbf', 1.5);
+      } else if (info.kind === 'plum') {
+        oval(-7, 1, 8, 9, '#7a3048', P.ink, 1.2); oval(7, -2, 8, 9, '#9a4060', P.ink, 1.2); oval(0, 6, 7, 8, '#632838', P.ink, 1.2);
+      } else if (info.kind === 'juice') {
+        const fill = info.drink === 'plum' ? '#a24a68' : '#f2d34a';
+        polygon([[-12, -16], [12, -16], [8, 16], [-8, 16]], '#f7f4ea', '#6d7c74', 1.5);
+        polygon([[-9, 0], [9, 0], [7, 14], [-7, 14]], fill); box(-7, -20, 14, 5, '#d7ece6', 2, '#6d7c74', 1);
       } else if (info.kind === 'egg') {
         oval(1, 2, 13, 17, '#d4ab70', P.ink, 1.5); oval(-1, -1, 12, 16, '#f5dab0'); oval(-4, -7, 4, 6, '#fff0ce');
       } else if (info.kind === 'rice') {
@@ -121,7 +135,7 @@
       line([[x - 30, y + 23], [x + 29, y + 23]], '#718c7c', 2); box(x - 10, y + 25, 20, 3, '#526e61', 1);
     }
     function crate(s, x, y) {
-      const cold = ['beef', 'chicken'].includes(s.supply), basket = ['greens', 'scallion', 'basil'].includes(s.supply);
+      const cold = ['beef', 'chicken', 'ice'].includes(s.supply), basket = ['greens', 'scallion', 'basil', 'lemon', 'plum'].includes(s.supply);
       oval(x + 3, y + 31, 37, 11, '#2b40302b');
       const c = cold ? '#91b4b1' : basket ? '#6f9479' : '#c39360';
       box(x - 32, y - 22, 64, 53, c, 5, P.ink, 2); box(x - 34, y - 30, 68, 50, cold ? '#d5e3d5' : basket ? '#a3ba8e' : '#d6b180', 5, P.ink, 2);
@@ -214,6 +228,12 @@
         if (s.type === 'serve') {
           box(x - 29, y - 27, 58, 39, '#ae8050', 4, P.ink, 1.5); box(x - 24, y - 22, 48, 29, '#d0a36b', 3); label('上 菜', x, y - 9, 16, '#fff0ce');
           oval(x + 18, y + 12, 9, 5, '#697c68', P.ink, 1); oval(x + 18, y + 9, 7, 6, '#d8be77', '#8d794c', 1); oval(x + 18, y + 3, 2, 2, '#a4864e');
+        }
+        if (s.type === 'juice') {
+          box(x - 24, y - 18, 48, 30, '#d7efe8', 6, P.ink, 1.5); box(x - 7, y - 30, 14, 20, '#f7fbf8', 3, '#6d8a80', 1.5);
+          if (s.item) item(s.item.id, x, y - 4, .7);
+          else s.ingredients.forEach((id, i) => item(id, x - 16 + i * 14, y - 2, .35));
+          if (s.progress > 0 && !s.item) bar(x, y - 48, s.progress / MIX_TIME, '#7ec8c0');
         }
       }
       const width = Math.max(72, s.name.length * 15 + 14);

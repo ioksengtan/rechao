@@ -180,6 +180,7 @@
     if (s.type === 'plates') return `E ${game.held?.id === 'plate' ? '放回' : '拿取'}餐盤 · 剩 ${game.plates} 個`;
     if (s.type === 'serve') return game.level.mode === 'training' ? 'E 交給師傅驗收 · 不需要餐盤' : 'E 上菜 · 自動送至正確桌次';
     if (s.type === 'trash') return 'E 丟棄食材／清空餐盤';
+    if (s.type === 'juice') return s.item ? `E 拿起${ITEMS[s.item.id].name}` : s.ingredients.length === 3 ? '空手按住 F 調配約 2 秒 · E 拿回材料' : s.ingredients.length ? `已放 ${s.ingredients.length} 項 · E 加料或拿回上一項` : 'E 放入檸檬片或脆梅、糖漿、冰塊';
     const w = game.woks[s.id];
     if (w.state === 'empty') return 'E 加入食材';
     if (w.state === 'loading') return HotStirFry.recipeFor(w.ingredients, game.level.menu) ? `F 炒 ${portionsFor(w.ingredients)} 份 · E 加料（最多 3 份）` : game.missingIngredients(s.id) + ' · E 加料／空手按住 F 清空';
