@@ -109,8 +109,22 @@
     return portionsFor(proposed) <= 3 && menu.some(key => proposed.every(i => RECIPES[key].ingredients.includes(i)));
   }
   const cookDuration = w => RECIPES[w.recipe].cookTime * (1 + .4 * ((w.portions || 1) - 1));
-  const chopDuration = item => 2 * (1 + .4 * ((item?.count || 1) - 1));
+  // Chef stats run 0–100; one conversion keeps the kitchen, HUD and art in agreement.
+  const CHEF_STATS = ['knife', 'heat', 'season', 'charm', 'control'];
+  function getChefModifiers(chef) {
+    const stat = key => Math.min(100, Math.max(0, Number(chef?.stats?.[key]) || 0)) / 100;
+    return {
+      chopTime: 2 * (1 - .3 * stat('knife')),
+      flipStart: .4 - .1 * stat('heat'), flipEnd: .85 + .05 * stat('heat'),
+      qualityBonus: .1 + .1 * stat('season'),
+      patience: 1 + .2 * stat('charm'),
+      burnTime: 8 + 4 * stat('control')
+    };
+  }
+  const BASE_MODIFIERS = getChefModifiers(null);
+  const chopDuration = (item, mods = BASE_MODIFIERS) => mods.chopTime * (1 + .4 * ((item?.count || 1) - 1));
   const MIX_TIME = 2;
+  const flipWindowText = mods => `${Math.round(mods.flipStart * 100)}%～${Math.round(mods.flipEnd * 100)}%`;
   const JUICE_RECIPES = { lemonJuice: ['lemon', 'syrup', 'ice'], plumJuice: ['plum', 'syrup', 'ice'] };
   const juiceRecipe = ingredients => Object.keys(JUICE_RECIPES).find(key => ingredients.length === JUICE_RECIPES[key].length && JUICE_RECIPES[key].every(id => ingredients.includes(id)));
   const juicePossible = ingredients => ingredients.length <= 3 && new Set(ingredients).size === ingredients.length && Object.values(JUICE_RECIPES).some(recipe => ingredients.every(id => recipe.includes(id)));
@@ -123,8 +137,9 @@
   function starCount(revenue, level) { return level.stars.filter(threshold => revenue >= threshold).length; }
   class Kitchen {
     constructor(random = Math.random, levelId = 'opening') { this.random = random; this.reset(levelId); }
-    reset(levelId = this.level?.id || 'opening') {
+    reset(levelId = this.level?.id || 'opening', chef = this.chef ?? null) {
       this.level = LEVELS.find(l => l.id === levelId) || LEVELS[0];
+      this.chef = chef; this.mods = getChefModifiers(this.level.mode === 'training' ? null : chef);
       this.phase = this.level.mode === 'training' ? 'training' : 'prep'; this.delivered = {}; this.time = this.level.prepTime; this.paused = false; this.held = null;
       this.stations = getStations(this.level);
       this.woks = Object.fromEntries(this.stations.filter(s => s.type === 'wok').map(s => [s.id, emptyWok()]));
@@ -144,8 +159,8 @@
         this.orderBag = [...this.level.menu];
         for (let i = this.orderBag.length - 1; i > 0; i--) { const j = Math.min(i, Math.max(0, Math.floor(this.random() * (i + 1)))); [this.orderBag[i], this.orderBag[j]] = [this.orderBag[j], this.orderBag[i]]; }
       }
-      const key = recipe || this.orderBag.pop();
-      this.orders.push({ id: this.nextId++, table: this.spawnIndex++ % 3 + 1, recipe: key, remaining: RECIPES[key].patience, total: RECIPES[key].patience });
+      const key = recipe || this.orderBag.pop(), patience = Math.round(RECIPES[key].patience * this.mods.patience);
+      this.orders.push({ id: this.nextId++, table: this.spawnIndex++ % 3 + 1, recipe: key, remaining: patience, total: patience });
     }
     interact(id) {
       if (this.paused || this.phase === 'ended') return;
@@ -234,8 +249,8 @@
         w.portions = portionsFor(w.ingredients); w.remaining = w.portions; w.recipe = recipe; w.state = 'cooking'; w.elapsed = 0; w.clearProgress = 0; this.message('開火！可以先去準備下一道菜。', 'fire');
       } else if (w.state === 'cooking') {
         const progress = w.elapsed / cookDuration(w);
-        if (progress >= .4 && progress <= .85 && !w.flipped) { w.flipped = true; this.flips++; this.message('翻炒漂亮！品質獎勵 +10%', 'done'); }
-        else this.message(w.flipped ? '已完成翻炒，等起鍋吧。' : '等進度到 40%～85% 時再翻炒。');
+        if (progress >= this.mods.flipStart && progress <= this.mods.flipEnd && !w.flipped) { w.flipped = true; this.flips++; this.message(`翻炒漂亮！品質獎勵 +${Math.round(this.mods.qualityBonus * 100)}%`, 'done'); }
+        else this.message(w.flipped ? '已完成翻炒，等起鍋吧。' : `等進度到 ${flipWindowText(this.mods)} 時再翻炒。`);
       }
     }
     serve() {
@@ -257,7 +272,7 @@
       if (!item || item.kind !== 'dish') return this.message('把完成的料理裝盤後送過來。');
       const match = this.orders.filter(o => o.recipe === item.recipe).sort((a, b) => a.remaining - b.remaining)[0];
       if (!match) return this.message('目前沒有客人點這道菜，先放備料檯。');
-      const r = RECIPES[item.recipe]; const income = r.price + Math.round(r.price * .2 * match.remaining / match.total) + (this.held.quality ? Math.round(r.price * .1) : 0);
+      const r = RECIPES[item.recipe]; const income = r.price + Math.round(r.price * .2 * match.remaining / match.total) + (this.held.quality ? Math.round(r.price * this.mods.qualityBonus) : 0);
       this.revenue += income; this.served++; this.orders = this.orders.filter(o => o !== match); this.held = null; this.returns.push(5);
       this.message('第 ' + match.table + ' 桌，上菜！收入 +$' + income, 'serve');
     }
@@ -272,7 +287,7 @@
       const board = this.stations.find(s => s.type === 'board' && s.id === workingStation);
       if (board && !this.held && board.item && ITEMS[board.item.id].processed) {
         board.progress += dt;
-        if (board.progress >= chopDuration(board.item)) { board.item.id = ITEMS[board.item.id].processed; board.progress = chopDuration(board.item); this.message('切好了！按 E 拿起食材。', 'done'); }
+        if (board.progress >= chopDuration(board.item, this.mods)) { board.item.id = ITEMS[board.item.id].processed; board.progress = chopDuration(board.item, this.mods); this.message('切好了！按 E 拿起食材。', 'done'); }
       }
       const juicer = this.stations.find(s => s.type === 'juice' && s.id === workingStation);
       if (juicer && !this.held && !juicer.item && juiceRecipe(juicer.ingredients)) {
@@ -288,11 +303,11 @@
       const label = id === 'wok' ? '一號鍋' : '二號鍋';
       if (w.state === 'cooking') {
         const old = w.elapsed; w.elapsed += dt;
-        if (old < cookDuration(w) * .4 && w.elapsed >= cookDuration(w) * .4) this.message(label + '可以翻炒了！到炒爐前按 F。', 'order');
-        if (w.elapsed >= cookDuration(w)) { w.state = 'ready'; w.readyTime = 0; this.message(label + '炒好了！拿盤盛裝，8 秒後會燒焦。', 'done'); }
+        if (old < cookDuration(w) * this.mods.flipStart && w.elapsed >= cookDuration(w) * this.mods.flipStart) this.message(label + '可以翻炒了！到炒爐前按 F。', 'order');
+        if (w.elapsed >= cookDuration(w)) { w.state = 'ready'; w.readyTime = 0; this.message(label + `炒好了！拿盤盛裝，${+this.mods.burnTime.toFixed(1)} 秒後會燒焦。`, 'done'); }
       } else if (w.state === 'ready') {
         w.readyTime += dt;
-        if (w.readyTime >= 8) { w.state = 'burned'; this.burned++; this.message(label + '燒焦了！空手按住 F 清鍋。', 'bad'); }
+        if (w.readyTime >= this.mods.burnTime) { w.state = 'burned'; this.burned++; this.message(label + '燒焦了！空手按住 F 清鍋。', 'bad'); }
       }
       if ((w.state === 'burned' || (w.state === 'loading' && !recipeFor(w.ingredients, this.level.menu))) && workingStation === id && !this.held) {
         w.clearProgress += dt;
@@ -312,7 +327,7 @@
     }
     finish() { if (this.phase === 'ended') return; this.expired += this.orders.length; this.orders = []; this.phase = 'ended'; this.time = 0; }
   }
-  const api = { Kitchen, ITEMS, RECIPES, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor, portionsFor, cookDuration, chopDuration, MIX_TIME, juiceRecipe };
+  const api = { Kitchen, ITEMS, RECIPES, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor, portionsFor, cookDuration, chopDuration, MIX_TIME, juiceRecipe, CHEF_STATS, getChefModifiers, flipWindowText };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HotStirFry = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

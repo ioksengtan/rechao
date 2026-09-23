@@ -170,7 +170,7 @@
         oval(fx, y + 3, 4, 2, '#85b9b9');
       }
     }
-    function drawWok(s, x, y, w) {
+    function drawWok(s, x, y, w, mods) {
       const hot = w.state === 'cooking' || w.state === 'ready';
       steel(x, y); box(x - 28, y - 25, 56, 42, '#748e81', 3, P.ink, 1);
       oval(x, y - 2, 25, 16, '#374d40');
@@ -192,9 +192,9 @@
       if (w.state === 'cooking') {
         const p = w.elapsed / cookDuration(w);
         bar(x, y - 47, p, '#e8bc63');
-        if (p >= .4 && p <= .85 && !w.flipped) badge('F 翻炒', x, y - 65, 82, '#f5da8f', '#755735');
+        if (p >= mods.flipStart && p <= mods.flipEnd && !w.flipped) badge('F 翻炒', x, y - 65, 82, '#f5da8f', '#755735');
       }
-      if (w.state === 'ready') { bar(x, y - 47, 1 - w.readyTime / 8, w.readyTime > 4 ? '#d78758' : '#c3c982'); badge(`剩 ${w.remaining || 1} 份`, x, y - 65, 90, w.readyTime > 4 ? '#f0bf91' : '#f1e2a6', '#795332'); }
+      if (w.state === 'ready') { bar(x, y - 47, 1 - w.readyTime / mods.burnTime, w.readyTime > mods.burnTime / 2 ? '#d78758' : '#c3c982'); badge(`剩 ${w.remaining || 1} 份`, x, y - 65, 90, w.readyTime > mods.burnTime / 2 ? '#f0bf91' : '#f1e2a6', '#795332'); }
       if (w.clearProgress > 0) bar(x, y - 47, w.clearProgress / 2, '#9ebcad');
     }
     function drawStation(s, game, target, chopping, active) {
@@ -202,7 +202,7 @@
       const focused = active && target?.id === s.id;
       if (focused) { box(x - 41, y - 38, 82, 83, '#fbe3a141', 9, '#f7d985', 3); }
       if (s.type === 'supply') crate(s, x, y);
-      else if (s.type === 'wok') drawWok(s, x, y, game.woks[s.id]);
+      else if (s.type === 'wok') drawWok(s, x, y, game.woks[s.id], game.mods);
       else if (s.type === 'trash') {
         oval(x + 2, y + 31, 32, 10, '#3143312b'); box(x - 23, y - 19, 46, 48, '#819a80', 7, P.ink, 2);
         for (let i = 0; i < 4; i++) line([[x - 15 + i * 10, y - 10], [x - 13 + i * 9, y + 21]], '#abc0a1', 3);
@@ -216,7 +216,7 @@
           const isCutting = chopping === s.id, phase = state.clock * 18;
           if (isCutting) { knife(x + 1, y - 10 - Math.abs(Math.sin(phase)) * 13, -.12); for (let i = 0; i < 3; i++) { const t = (state.clock * 2 + i * .33) % 1; box(x - 15 + t * 26, y - 12 - Math.sin(t * Math.PI) * 12, 3, 3, '#a5b774', 1); } }
           else knife(x + 6, y - 8, -1.2);
-          if (s.progress > 0 && s.item && !ITEMS[s.item.id].chopped) bar(x, y - 45, s.progress / chopDuration(s.item));
+          if (s.progress > 0 && s.item && !ITEMS[s.item.id].chopped) bar(x, y - 45, s.progress / chopDuration(s.item, game.mods));
         }
         if (s.item && (s.item.count || 1) > 1) badge(`×${s.item.count}`, x + 22, y - 23, 32, '#f1e2a6', '#795332');
         if (s.type === 'counter') { if (s.item) item(s.item.id, x, y - 6, .95); else { box(x - 19, y - 18, 37, 24, null, '#b9cabb', 1); line([[x - 12, y - 10], [x + 5, y - 10]], '#d7dfca', 1); } }
