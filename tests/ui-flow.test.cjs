@@ -8,10 +8,11 @@ const vm = require('node:vm');
 const core = require('../game-core.js');
 const movement = require('../movement.js');
 const progress = require('../progress.js');
+const career = require('../career.js');
 const art = require('../art.js');
 
-function runtime() {
-  const nodes = {}, events = {}, records = new Map();
+function runtime(records = new Map()) {
+  const nodes = {}, events = {};
   let frame, now = 0, game, player;
   const context2d = new Proxy({}, { get: (target, key) => target[key] || (() => {}), set: (target, key, value) => (target[key] = value, true) });
   const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
@@ -29,6 +30,7 @@ function runtime() {
     HotStirFry: { ...core, Kitchen: class extends core.Kitchen { constructor() { super(); game = this; } } },
     HotStirFryMovement: { ...movement, createPlayer() { player = movement.createPlayer(); return player; } },
     HotStirFryProgress: progress,
+    HotStirFryCareer: career,
     HotStirFryArt: art,
   };
   scope.window = scope;
@@ -36,6 +38,7 @@ function runtime() {
   return {
     nodes, records, events, get game() { return game; }, get player() { return player; },
     frame() { now += 1000 / 60; frame(now); },
+    click(id, dataset) { nodes[id].onclick({ target: { closest: () => ({ dataset }) } }); },
     select(level) { nodes['level-list'].onclick({ target: { closest: () => ({ dataset: { level } }) } }); },
     press(key) { events.keydown({ key, repeat: false, preventDefault() {} }); },
     release(key) { events.keyup({ key }); }
@@ -100,4 +103,105 @@ test('notebook categories, training completion and next service keep separate re
  assert.match(ui.nodes['result-level'].textContent,/備料課完成/);
  assert.equal(JSON.parse(ui.records.get(progress.KEY))['prep-school'].runs,1);
  ui.nodes['next-level'].onclick();ui.frame();assert.equal(ui.game.level.id,'opening');
+});
+
+const careerData = ui => JSON.parse(ui.records.get(career.KEY) || '{}');
+function playWeeks(ui) {
+  for (let i = 0; i < 40; i++) {
+    const run = careerData(ui).run;
+    if (run.pending?.type === 'exam') return run;
+    if (run.pending?.type === 'event') ui.click('career-body', { career: 'choice', value: '0' });
+    else ui.click('career-body', { career: 'action', value: run.stamina < 40 ? 'rest' : 'heat' });
+  }
+  throw new Error('career never reached the exam');
+}
+
+test('career loop: eight weeks, one final exam, a chef card, then service with that card', () => {
+  const ui = runtime();
+  ui.nodes['career-open'].onclick();
+  assert.equal(ui.nodes.career.classList.contains('hidden'), false);
+  assert.match(ui.nodes['career-body'].innerHTML, /還沒有主廚卡/);
+  ui.click('career-body', { career: 'start' });
+  assert.equal(ui.nodes['career-week'].textContent, '第 1 / 8 週');
+  assert.match(ui.nodes['career-body'].innerHTML, /練火候[\s\S]*火候 \+12、控鍋 \+5、體力 -25/);
+  const run = playWeeks(ui);
+  assert.equal(run.week, 8);
+  ui.click('career-body', { career: 'exam' });
+  assert.equal(ui.game.level.id, 'opening'); assert.equal(ui.game.phase, 'prep');
+  assert.deepEqual({ ...ui.game.chef.stats }, run.stats); assert.ok(ui.game.mods.flipStart < .4, 'trained heat widens the flip window');
+  assert.match(ui.nodes['current-level'].textContent, /結業考/);
+  ui.game.revenue = 900; ui.game.finish(); ui.frame();
+  assert.equal(ui.nodes.stars.textContent, '★★★'); assert.match(ui.nodes['result-message'].textContent, /總舖師/);
+  assert.equal(ui.nodes.restart.classList.contains('hidden'), true);
+  assert.equal(ui.records.get(progress.KEY), undefined, 'the exam never writes a service record');
+  const settled = careerData(ui).run;
+  for (let i = 0; i < 5; i++) ui.frame();
+  assert.deepEqual(careerData(ui).run.stats, settled.stats, 'the exam bonus is granted once');
+  ui.nodes['next-level'].onclick();
+  assert.equal(ui.nodes.career.classList.contains('hidden'), false);
+  assert.equal(ui.nodes['career-name-field'].classList.contains('hidden'), false);
+  ui.nodes['career-nickname'].value = '小艾<b>';
+  ui.click('career-card-actions', { career: 'keep' });
+  const saved = careerData(ui);
+  assert.equal(saved.run, null); assert.equal(saved.cards[0].nickname, '小艾<b>'); assert.equal(saved.cards[0].title, '總舖師');
+  ui.nodes['career-close'].onclick(); ui.select('rush');
+  assert.equal(ui.nodes['chef-picker'].classList.contains('hidden'), false);
+  assert.match(ui.nodes['chef-picker'].innerHTML, /小艾&lt;b&gt;/, 'nicknames are escaped');
+  ui.nodes.start.onclick(); ui.frame();
+  assert.equal(ui.game.chef.nickname, '小艾<b>');
+  ui.game.revenue = 500; ui.game.finish(); ui.frame();
+  assert.match(ui.nodes['best-record'].textContent, /主廚卡紀錄 \$500/);
+  assert.equal(careerData(ui).records.rush.runs, 1); assert.equal(ui.records.get(progress.KEY), undefined);
+  ui.nodes['next-level'].onclick(); ui.frame();
+  assert.equal(ui.game.level.id, 'friday'); assert.equal(ui.game.chef.nickname, '小艾<b>', 'next level keeps the chosen card');
+  ui.game.finish(); ui.frame(); ui.nodes['choose-results'].onclick();
+  ui.click('chef-picker', { chef: '' }); ui.select('opening'); ui.nodes.start.onclick(); ui.frame();
+  assert.equal(ui.game.chef, null); assert.deepEqual(ui.game.mods, core.getChefModifiers(null));
+  ui.game.revenue = 200; ui.game.finish(); ui.frame();
+  assert.equal(JSON.parse(ui.records.get(progress.KEY)).opening.runs, 1, 'standard Alex writes the standard record');
+});
+
+test('training lessons ignore a selected chef card', () => {
+  const records = new Map();
+  records.set(career.KEY, JSON.stringify({ cards: [{ id: 'c1', nickname: '阿艾', title: '二廚', stats: { knife: 100, heat: 100, season: 100, charm: 100, control: 100 } }] }));
+  const ui = runtime(records);
+  ui.select('opening'); ui.click('chef-picker', { chef: 'c1' });
+  ui.select('prep-school'); assert.equal(ui.nodes['chef-picker'].classList.contains('hidden'), true);
+  ui.nodes.start.onclick(); ui.frame();
+  assert.deepEqual(ui.game.mods, core.getChefModifiers(null));
+  ui.game.finish(); ui.frame();
+  assert.equal(JSON.parse(records.get(progress.KEY))['prep-school'].runs, 1);
+});
+
+test('a reload resumes the current week, and a full roster needs an explicit choice', () => {
+  const records = new Map(), ui = runtime(records);
+  ui.nodes['career-open'].onclick(); ui.click('career-body', { career: 'start' });
+  ui.click('career-body', { career: 'action', value: 'rest' });
+  const week = careerData(ui).run.week;
+  const again = runtime(records); again.nodes['career-open'].onclick();
+  assert.equal(again.nodes['career-week'].textContent, `第 ${week} / 8 週`);
+  const stats = { knife: 10, heat: 10, season: 10, charm: 10, control: 10 };
+  const cards = [0, 1, 2, 3, 4].map(i => ({ id: 'c' + i, nickname: '卡' + i, title: '見習生', stats }));
+  records.set(career.KEY, JSON.stringify({ cards, run: { id: 'run-new1', week: 8, stamina: 50, injured: 0, stats, usedEvents: [], log: [], pending: { type: 'card' }, result: { revenue: 100, stars: 0, bonus: 0, title: '見習生' } } }));
+  const full = runtime(records); full.nodes['career-open'].onclick();
+  assert.match(full.nodes['career-body'].innerHTML, /主廚卡已滿 5 張/);
+  assert.match(full.nodes['career-card-actions'].innerHTML, /data-career="keep" disabled/);
+  full.click('career-card-actions', { career: 'keep' });
+  assert.equal(careerData(full).cards[1].nickname, '卡1'); assert.ok(careerData(full).run, 'nothing is overwritten without a slot');
+  full.click('career-body', { career: 'slot', value: '1' }); full.nodes['career-nickname'].value = '新卡';
+  full.click('career-card-actions', { career: 'keep' });
+  assert.equal(careerData(full).cards[1].nickname, '新卡'); assert.equal(careerData(full).cards.length, 5); assert.equal(careerData(full).run, null);
+});
+
+test('discarding a card and abandoning a run both ask twice', () => {
+  const records = new Map(), ui = runtime(records);
+  ui.nodes['career-open'].onclick(); ui.click('career-body', { career: 'start' });
+  ui.nodes['career-abandon'].onclick(); assert.ok(careerData(ui).run); assert.match(ui.nodes['career-abandon'].textContent, /再按一次/);
+  ui.nodes['career-abandon'].onclick(); assert.equal(careerData(ui).run, null);
+  const stats = { knife: 0, heat: 0, season: 0, charm: 0, control: 0 };
+  records.set(career.KEY, JSON.stringify({ cards: [], run: { id: 'run-x', week: 8, stamina: 50, injured: 0, stats, usedEvents: [], log: [], pending: { type: 'card' }, result: { revenue: 0, stars: 0, bonus: 0, title: '見習生' } } }));
+  const again = runtime(records); again.nodes['career-open'].onclick();
+  again.click('career-card-actions', { career: 'discard' }); assert.ok(careerData(again).run);
+  again.click('career-card-actions', { career: 'discard' }); assert.equal(careerData(again).run, null); assert.equal(careerData(again).cards.length, 0);
+  again.press('Escape'); assert.equal(again.nodes.career.classList.contains('hidden'), true); assert.equal(again.nodes.welcome.classList.contains('hidden'), false);
 });

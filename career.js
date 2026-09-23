@@ -120,7 +120,7 @@
     record(levelId, card, revenue, stars) {
       const row = this.records[levelId] ||= { revenue: 0, stars: 0, runs: 0, chef: null };
       row.runs++;
-      if (revenue > row.revenue || (revenue === row.revenue && stars > row.stars)) Object.assign(row, { revenue, stars, chef: { nickname: card.nickname, title: card.title, stats: { ...card.stats } } });
+      if (!row.chef || revenue > row.revenue || (revenue === row.revenue && stars > row.stars)) Object.assign(row, { revenue, stars, chef: { nickname: card.nickname, title: card.title, stats: { ...card.stats } } });
       this.save(); return { ...row };
     }
   }
