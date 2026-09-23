@@ -2,50 +2,10 @@
 // Visual layout is checked separately in a browser; these tests cover lifecycle wiring.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
-const core = require('../game-core.js');
-const movement = require('../movement.js');
 const progress = require('../progress.js');
 const career = require('../career.js');
-const art = require('../art.js');
-const audio = require('../audio.js');
-
-function runtime(records = new Map()) {
-  const nodes = {}, events = {};
-  let frame, now = 0, game, player;
-  const context2d = new Proxy({}, { get: (target, key) => target[key] || (() => {}), set: (target, key, value) => (target[key] = value, true) });
-  const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
-  for (const match of html.matchAll(/id="([^"]+)"/g)) {
-    const classes = new Set();
-    nodes[match[1]] = { textContent: '', innerHTML: '', disabled: false, focus() {}, getContext: () => context2d, querySelector: () => ({ focus() {} }),
-      classList: { add: key => classes.add(key), remove: key => classes.delete(key), contains: key => classes.has(key), toggle(key, force) { const on = force ?? !classes.has(key); if (on) classes.add(key); else classes.delete(key); return on; } } };
-  }
-  const scope = {
-    document: { getElementById: id => { assert.ok(nodes[id], `DOM node exists: ${id}`); return nodes[id]; }, addEventListener: (name, cb) => events[name] = cb },
-    addEventListener: (name, cb) => events[name] = cb,
-    requestAnimationFrame: cb => frame = cb,
-    performance: { now: () => now },
-    localStorage: { getItem: key => records.get(key), setItem: (key, value) => records.set(key, value) },
-    HotStirFry: { ...core, Kitchen: class extends core.Kitchen { constructor() { super(); game = this; } } },
-    HotStirFryMovement: { ...movement, createPlayer() { player = movement.createPlayer(); return player; } },
-    HotStirFryProgress: progress,
-    HotStirFryCareer: career,
-    HotStirFryArt: art,
-    HotStirFryAudio: audio,
-  };
-  scope.window = scope;
-  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../game.js'), 'utf8'), scope, { filename: 'game.js' });
-  return {
-    nodes, records, events, get game() { return game; }, get player() { return player; },
-    frame() { now += 1000 / 60; frame(now); },
-    click(id, dataset) { nodes[id].onclick({ target: { closest: () => ({ dataset }) } }); },
-    select(level) { nodes['level-list'].onclick({ target: { closest: () => ({ dataset: { level } }) } }); },
-    press(key) { events.keydown({ key, repeat: false, preventDefault() {} }); },
-    release(key) { events.keyup({ key }); }
-  };
-}
+const core = require('../game-core.js');
+const { runtime } = require('./ui-runtime.cjs');
 
 test('UI selection, keyboard movement, pause, results, next level and restart work together', () => {
   const ui = runtime();
