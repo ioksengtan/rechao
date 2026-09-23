@@ -10,7 +10,10 @@
   };
   function createRenderer(ctx, data) {
     const { ITEMS, RECIPES, cookDuration, chopDuration, MIX_TIME } = data;
-    const state = { clock: 0, effects: [], tosses: {}, gesture: null, tables: {} };
+    const state = { clock: 0, effects: [], tosses: {}, gesture: null, tables: {}, shake: null, seen: null };
+    const REACTIONS = ['好吃！', '讚啦！', '好香喔！', '再來一盤！', '老闆，厲害！', '鍋氣十足！'];
+    const HURRY = ['老闆，我的菜呢～', '還要等很久嗎？', '肚子好餓喔……'];
+    const at = s => ({ x: s.x * 60 + 30, y: s.y * 60 + 30 });
     function box(x, y, w, h, fill, radius = 0, stroke, lineWidth = 2) {
       ctx.beginPath(); ctx.roundRect(x, y, w, h, radius);
       if (fill) { ctx.fillStyle = fill; ctx.fill(); }
@@ -367,11 +370,37 @@
       if (game.held && !back) { oval(player.dx * 10, 12 - reach * .3, 24, 10, '#44564022'); item(game.held.id, player.dx * 10, 11 - reach * .3, .9); }
       ctx.restore();
     }
+    function bubble(text, x, y, urgent) {
+      const width = Math.min(136, text.length * 12 + 18);
+      box(x - width / 2, y - 13, width, 24, urgent ? '#f6d2bd' : '#fffaf0', 8, urgent ? '#b0532f' : '#6b785b', 1.5);
+      polygon([[x - 6, y + 10], [x + 6, y + 10], [x, y + 18]], urgent ? '#f6d2bd' : '#fffaf0');
+      label(text, x, y - 1, 12, urgent ? '#8c3c22' : '#4b5544');
+    }
     function drawEffects() {
       for (const fx of state.effects) {
         const p = 1 - fx.remaining / fx.duration;
+        if (fx.kind === 'bubble') {
+          const shown = fx.duration - fx.remaining - fx.delay;
+          if (shown < 0) continue;
+          ctx.save(); ctx.globalAlpha = Math.min(1, shown * 6, fx.remaining * 3);
+          bubble(fx.text, 1077, 220 + (fx.table - 1) * 158 - 74 - Math.min(1, shown * 6) * 4, fx.urgent);
+          ctx.restore(); continue;
+        }
         ctx.save(); ctx.globalAlpha = Math.min(1, (1 - p) * 2);
-        if (fx.kind === 'delivery') {
+        if (fx.kind === 'flame') {
+          for (let i = 0; i < 9; i++) {
+            const angle = -Math.PI / 2 + (i - 4) * .28, reach = p * (34 + (i % 3) * 10);
+            const x = OFFSET.x + fx.x + Math.cos(angle) * reach, y = OFFSET.y + fx.y - 6 + Math.sin(angle) * reach;
+            oval(x, y, 6 * (1 - p) + 2, 9 * (1 - p) + 2, i % 2 ? '#f5a441' : '#ffd77a');
+          }
+        } else if (fx.kind === 'smoke') {
+          for (let i = 0; i < 5; i++) oval(OFFSET.x + fx.x + (i - 2) * 11 + Math.sin(p * 6 + i) * 5, OFFSET.y + fx.y - 20 - p * (40 + i * 6), 9 + p * 12, 7 + p * 9, '#4a4f45aa');
+        } else if (fx.kind === 'float') {
+          ctx.font = '800 20px "Microsoft JhengHei", "PingFang TC", sans-serif'; ctx.lineWidth = 5; ctx.strokeStyle = '#1e322de0';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          const x = OFFSET.x + fx.x, y = OFFSET.y + fx.y - 30 - p * 36;
+          ctx.strokeText(fx.text, x, y); ctx.fillStyle = fx.color; ctx.fillText(fx.text, x, y);
+        } else if (fx.kind === 'delivery') {
           const startX = OFFSET.x + 14 * 60 + 30, startY = OFFSET.y + 6 * 60 + 30;
           const endY = 220 + (fx.table - 1) * 158;
           dish(fx.recipe, startX + (1077 - startX) * p, startY + (endY - startY) * p - Math.sin(p * Math.PI) * 35, .85);
@@ -381,7 +410,32 @@
         ctx.restore();
       }
     }
-    function reset() { state.clock = 0; state.effects = []; state.tosses = {}; state.gesture = null; state.tables = {}; state.walking = false; }
+    function reset() { state.clock = 0; state.effects = []; state.tosses = {}; state.gesture = null; state.tables = {}; state.walking = false; state.shake = null; state.seen = null; }
+    function shake(strength, duration) { if (!state.shake || state.shake.strength * state.shake.remaining / state.shake.duration < strength) state.shake = { strength, duration, remaining: duration }; }
+    function say(table, text, duration, delay = 0, urgent = false) {
+      state.effects = state.effects.filter(fx => !(fx.kind === 'bubble' && fx.table === table));
+      state.effects.push({ kind: 'bubble', table, text, urgent, delay, remaining: duration + delay, duration: duration + delay });
+    }
+    // Watches state changes that happen on their own (fire, burning, new or impatient orders).
+    function observe(game) {
+      const woks = Object.fromEntries(Object.entries(game.woks).map(([id, w]) => [id, w.state]));
+      const orders = game.orders.map(o => o.id), urgent = game.orders.filter(o => o.remaining < 20).map(o => o.id);
+      // After a reset the baseline is an empty kitchen, so the first customers still call out.
+      const seen = state.seen || { woks: {}, orders: [], urgent: [] };
+      for (const [id, now] of Object.entries(woks)) {
+        if (seen.woks[id] === now) continue;
+        const station = game.stations.find(st => st.id === id); if (!station) continue;
+        const { x, y } = at(station);
+        if (now === 'cooking') { state.effects.push({ kind: 'flame', x, y, remaining: .5, duration: .5 }); shake(2, .18); }
+        if (now === 'burned') { state.effects.push({ kind: 'smoke', x, y, remaining: 1.2, duration: 1.2 }, { kind: 'float', text: '燒焦了！', color: '#f3b39a', x, y, remaining: 1.1, duration: 1.1 }); shake(5, .35); }
+      }
+      for (const o of game.orders) {
+        if (!seen.orders.includes(o.id)) say(o.table, `老闆！${RECIPES[o.recipe].name}一份！`, 2.6);
+        else if (urgent.includes(o.id) && !seen.urgent.includes(o.id)) say(o.table, HURRY[o.id % HURRY.length], 2.4, 0, true);
+      }
+      state.seen = { woks, orders, urgent };
+      state.effects = state.effects.slice(-32);
+    }
     function update(dt, animate) {
       if (!animate) return;
       state.clock += dt;
@@ -390,34 +444,44 @@
       for (const id of Object.keys(state.tosses)) { state.tosses[id] -= dt; if (state.tosses[id] <= 0) delete state.tosses[id]; }
       if (state.gesture) { state.gesture.remaining -= dt; if (state.gesture.remaining <= 0) state.gesture = null; }
       for (const id of Object.keys(state.tables)) { state.tables[id].remaining -= dt; if (state.tables[id].remaining <= 0) delete state.tables[id]; }
+      if (state.shake) { state.shake.remaining -= dt; if (state.shake.remaining <= 0) state.shake = null; }
     }
     function snapshot(game) {
       const recipe = game.held && ITEMS[game.held.id].recipe;
       const order = recipe && game.orders.filter(o => o.recipe === recipe).sort((a, b) => a.remaining - b.remaining)[0];
-      return { held: game.held?.id, served: game.served, recipe, table: order?.table, flips: game.flips };
+      return { held: game.held?.id, served: game.served, recipe, table: order?.table, flips: game.flips, revenue: game.revenue };
     }
     function action(station, game, before) {
       if (!station) return;
       const x = station.x * 60 + 30, y = station.y * 60 + 30;
-      if (game.flips > before.flips) { state.tosses[station.id] = .65; state.gesture = { remaining: .65, duration: .65 }; }
+      if (game.flips > before.flips) {
+        state.tosses[station.id] = .65; state.gesture = { remaining: .65, duration: .65 };
+        state.effects.push({ kind: 'flame', x, y, remaining: .55, duration: .55 }, { kind: 'float', text: '翻炒漂亮！', color: '#ffe0a1', x, y: y - 20, remaining: .9, duration: .9 });
+        shake(3, .2);
+      }
       if (game.held?.id !== before.held) { state.gesture = { remaining: .35, duration: .35 }; state.effects.push({ kind: 'spark', x, y: y - 12, color: '#f4df9f', remaining: .4, duration: .4 }); }
       if (game.served > before.served && before.table) {
         state.effects.push({ kind: 'delivery', table: before.table, recipe: before.recipe, remaining: .8, duration: .8 });
         state.tables[before.table] = { recipe: before.recipe, remaining: 9, arrivesAt: state.clock + .8 };
+        if (game.revenue > before.revenue) state.effects.push({ kind: 'float', text: `+$${game.revenue - before.revenue}`, color: '#f8d77e', x, y, remaining: 1.1, duration: 1.1 });
+        say(before.table, REACTIONS[game.served % REACTIONS.length], 2.2, .8);
       }
       state.effects = state.effects.slice(-24);
     }
     function draw(game, player, target, keys, running, ended) {
-      ctx.clearRect(0, 0, WIDTH, HEIGHT); scene(game);
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+      const sh = state.shake, amount = sh ? sh.strength * sh.remaining / sh.duration : 0;
+      ctx.save(); ctx.translate(Math.sin(state.clock * 97) * amount, Math.cos(state.clock * 83) * amount);
+      scene(game);
       const active = running && !ended && !game.paused;
       const chopping = active && keys.has('f') && target?.type === 'board' && !game.held && target.item && ITEMS[target.item.id].processed ? target.id : null;
       state.walking = active && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].some(k => keys.has(k));
       ctx.save(); ctx.translate(OFFSET.x, OFFSET.y);
       const sorted = [...game.stations.map(s => ({ y: s.y * 60 + 30, s })), { y: player.y, chef: true }].sort((a, b) => a.y - b.y);
       for (const obj of sorted) { if (obj.chef) drawChef(player, game, chopping, active); else drawStation(obj.s, game, target, chopping, active); }
-      ctx.restore(); drawEffects();
+      ctx.restore(); drawEffects(); ctx.restore();
     }
-    return { draw, update, reset, snapshot, action, state };
+    return { draw, update, reset, snapshot, action, observe, state };
   }
   const api = { createRenderer, WIDTH, HEIGHT, OFFSET };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

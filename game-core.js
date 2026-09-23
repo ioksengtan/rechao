@@ -249,7 +249,7 @@
         w.portions = portionsFor(w.ingredients); w.remaining = w.portions; w.recipe = recipe; w.state = 'cooking'; w.elapsed = 0; w.clearProgress = 0; this.message('開火！可以先去準備下一道菜。', 'fire');
       } else if (w.state === 'cooking') {
         const progress = w.elapsed / cookDuration(w);
-        if (progress >= this.mods.flipStart && progress <= this.mods.flipEnd && !w.flipped) { w.flipped = true; this.flips++; this.message(`翻炒漂亮！品質獎勵 +${Math.round(this.mods.qualityBonus * 100)}%`, 'done'); }
+        if (progress >= this.mods.flipStart && progress <= this.mods.flipEnd && !w.flipped) { w.flipped = true; this.flips++; this.message(`翻炒漂亮！品質獎勵 +${Math.round(this.mods.qualityBonus * 100)}%`, 'flip'); }
         else this.message(w.flipped ? '已完成翻炒，等起鍋吧。' : `等進度到 ${flipWindowText(this.mods)} 時再翻炒。`);
       }
     }

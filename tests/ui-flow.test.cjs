@@ -10,6 +10,7 @@ const movement = require('../movement.js');
 const progress = require('../progress.js');
 const career = require('../career.js');
 const art = require('../art.js');
+const audio = require('../audio.js');
 
 function runtime(records = new Map()) {
   const nodes = {}, events = {};
@@ -32,6 +33,7 @@ function runtime(records = new Map()) {
     HotStirFryProgress: progress,
     HotStirFryCareer: career,
     HotStirFryArt: art,
+    HotStirFryAudio: audio,
   };
   scope.window = scope;
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../game.js'), 'utf8'), scope, { filename: 'game.js' });

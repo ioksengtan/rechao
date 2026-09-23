@@ -9,7 +9,8 @@
   const art = window.HotStirFryArt.createRenderer(ctx, window.HotStirFry);
   const keys = new Set();
   let player = createPlayer(), running = false, target = null;
-  let last = performance.now(), hudTimer = 0, toastUntil = 0, muted = false, audio = null, ended = false;
+  let last = performance.now(), hudTimer = 0, toastUntil = 0, chopTimer = 0, ended = false;
+  const sfx = window.HotStirFryAudio.createAudio(window);
   let storage;
   try { storage = localStorage; } catch (_) { /* Scores remain session-only when browser storage is blocked. */ }
   const progress = new window.HotStirFryProgress.Progress(storage);
@@ -147,11 +148,7 @@
     if (!button) return;
     selectedChef = button.dataset.chef || null; renderLevelSelect();
   };
-  function sound(type) {
-    if (muted || !audio) return;
-    const tones = { tap:[320], done:[523,659], order:[660,880], serve:[523,659,784], bad:[220,160], fire:[140,190] }[type] || [320];
-    tones.forEach((hz, i) => { const o = audio.createOscillator(), gain = audio.createGain(), t = audio.currentTime + i * .09; o.type = 'sine'; o.frequency.value = hz; gain.gain.setValueAtTime(.045, t); gain.gain.exponentialRampToValueAtTime(.001, t + .15); o.connect(gain); gain.connect(audio.destination); o.start(t); o.stop(t + .16); });
-  }
+  function sound(type) { sfx.play(type); }
   function showToast(text, tone) { $('toast').textContent = text; $('toast').classList.add('show'); toastUntil = performance.now() + 3200; sound(tone); }
   function drainEvents() { const events = game.events.splice(0); if (events.length) { const e = events[events.length - 1]; showToast(e.text, e.sound); } }
   function renderLevelSelect() {
@@ -226,7 +223,7 @@
   }
   function beginShift(next) {
     session = next; selectedLevel = next.level; selectedCourse = courseFor(LEVELS.find(l => l.id === next.level));
-    try { audio ||= new (window.AudioContext || window.webkitAudioContext)(); audio.resume().catch(() => {}); } catch (_) { /* Audio is optional. */ }
+    sfx.resume();
     game.reset(selectedLevel, session.chef); art.reset(); player = createPlayer(); keys.clear(); running = true; ended = false; target = null;
     $('overlay').classList.add('hidden'); $('pause').disabled = false; $('pause').textContent = '暫停 Esc'; last = performance.now();
     canvas.focus(); renderMenu();
@@ -247,7 +244,7 @@
     const next = nextLevel(); if (next) beginShift({ ...session, level: next.id });
   };
   $('open-early').onclick = () => { if (running && !game.paused) { game.startService(); drainEvents(); updateHUD(); } };
-  $('sound').onclick = () => { muted = !muted; $('sound').textContent = '音效 ' + (muted ? '關' : '開'); };
+  $('sound').onclick = () => { sfx.muted = !sfx.muted; $('sound').textContent = '音效 ' + (sfx.muted ? '關' : '開'); };
   addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
     if (careerOpen) { if (key === 'escape' && !e.repeat) { e.preventDefault(); closeCareer(); } return; }
@@ -359,13 +356,21 @@
     }
     $('welcome').classList.add('hidden'); $('paused').classList.add('hidden'); $('results').classList.remove('hidden'); $('overlay').classList.remove('hidden'); sound('serve'); updateHUD(); (next || session.kind === 'exam' ? $('next-level') : $('restart')).focus();
   }
+  // A knife tap every few frames while F is held on a board that still has raw food.
+  function chopSound(dt) {
+    const board = target?.type === 'board' && keys.has('f') && !game.held && target.item && ITEMS[target.item.id].processed;
+    chopTimer = board ? chopTimer + dt : 0;
+    if (chopTimer >= .2) { chopTimer = 0; sound('chop'); }
+  }
   function draw() {
     art.draw(game, player, target, keys, running, ended);
     $('interaction').textContent = prompt();
   }
   function frame(now){
     const dt=Math.min((now-last)/1000,.25);last=now;
-    if(running&&!game.paused&&!ended){move(dt);game.tick(dt,keys.has('f')&&target?target.id:null);drainEvents();if(game.phase==='ended')finish();hudTimer+=dt;if(hudTimer>.15){updateHUD();hudTimer=0;}}
+    const active=running&&!game.paused&&!ended;
+    if(active){move(dt);game.tick(dt,keys.has('f')&&target?target.id:null);drainEvents();art.observe(game);chopSound(dt);if(game.phase==='ended')finish();hudTimer+=dt;if(hudTimer>.15){updateHUD();hudTimer=0;}}
+    sfx.ambience(active?Object.values(game.woks).filter(w=>w.state==='cooking').length:0,active&&(game.phase==='service'||game.phase==='closing'));
     art.update(dt, !game.paused && !ended);
     if(now>toastUntil)$('toast').classList.remove('show');draw();requestAnimationFrame(frame);
   }
