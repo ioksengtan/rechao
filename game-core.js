@@ -10,6 +10,8 @@
     egg: { name: '雞蛋', kind: 'egg' }, rice: { name: '白飯', kind: 'rice' }, plate: { name: '乾淨餐盤', kind: 'plate' },
     lemon: { name: '檸檬片', kind: 'lemon' }, syrup: { name: '糖漿', kind: 'syrup' }, ice: { name: '冰塊', kind: 'ice' }, plum: { name: '脆梅', kind: 'plum' },
     lemonJuice: { name: '冰檸檬汁', kind: 'juice', drink: 'lemon' }, plumJuice: { name: '冰梅子汁', kind: 'juice', drink: 'plum' },
+    saucePortion: { name: '三杯醬', kind: 'sauce', portion: true, spoons: 2, cc: 30, boardMessage: '醬料不用切。' },
+    soyPortion: { name: '醬油', kind: 'soy', portion: true, spoons: 1, cc: 15, boardMessage: '醬料不用切。' },
     greensDish: { name: '清炒青菜', kind: 'dish', recipe: 'greens' }, riceDish: { name: '黃金蛋炒飯', kind: 'dish', recipe: 'rice' },
     beefDish: { name: '蔥爆牛肉', kind: 'dish', recipe: 'beef' }, chickenDish: { name: '三杯雞', kind: 'dish', recipe: 'chicken' },
     onionEggDish: { name: '蔥花蛋', kind: 'dish', recipe: 'onionEgg' }
@@ -55,24 +57,26 @@
     reject: '阿明：請交切好的蔥或九層塔。生蔥要先切，九層塔不用切。'
   }));
   LEVELS.push(lesson({
-    id: 'sauce-school', course: 'sauces', name: '醬料入味課', subtitle: '醬料不用切，數好再交', description: '阿明：三杯醬和醬油都是拿了就交，千萬別放砧板。',
-    stations: ['sauce', 'soy', 'counter', 'serve', 'trash'], goals: [{ id: 'sauce', count: 2 }, { id: 'soy', count: 3 }],
-    card: '不限時 · 醬料直接交付', timing: '不限時 · 無客人催單 · 完成清單即可過關',
-    toast: '阿明：三杯醬、醬油都不用切，拿到右側驗收檯交給師傅！',
-    steps: '① E 拿三杯醬或醬油。<br>② 直接到右側驗收檯按 E 交付，數好份數。<br>③ 多的留在手上。備料檯可以暫存或交換，醬料不用切。',
-    tip: '醬料不用切。三杯醬交 2 份，醬油交 3 份。',
-    phaseLabel: '醬料練習', phaseNote: '阿明：醬料不上砧板，拿準數量交給師傅。', ordersTitle: '醬料清單', ordersSubtitle: '直接交到右側驗收檯，不需要盤子。',
-    resultTitle: '醬料入味課完成', resultMessage: '阿明：醬料都點好了！接下來可以挑戰第一晚開張。',
-    reject: '阿明：請交三杯醬或醬油，醬料不用切。'
+    id: 'sauce-school', course: 'sauces', name: '醬料入味課', subtitle: '量好大匙再交付', description: '阿明：三杯醬量 2 大匙，醬油量 1 大匙。瓶子不要放砧板，也不能直接交。',
+    stations: ['sauce', 'soy', 'counter', 'serve', 'trash'], goals: [{ id: 'saucePortion', count: 2 }, { id: 'soyPortion', count: 3 }],
+    measure: 'sauce',
+    card: '不限時 · 量匙後交付', timing: '不限時 · 無客人催單 · 完成清單即可過關',
+    toast: '阿明：先拿瓶子，在量杯區一匙一匙量，量好再交到驗收檯！',
+    steps: '① E 拿三杯醬或醬油瓶子。<br>② 到量杯區按 E 或 F，一次加 1 大匙。三杯醬 2 大匙（約 30 cc），醬油 1 大匙（約 15 cc）。<br>③ 匙數剛好再按 E 拿起那一份，交到驗收檯。再按 F 會超量；超量不能拿，到廚餘桶倒掉，不會自動改成剛好。',
+    tip: '三杯醬交 2 份，每份 2 大匙。醬油交 3 份，每份 1 大匙。瓶子不能直接交。',
+    phaseLabel: '醬料練習', phaseNote: '阿明：先量準大匙，再交給師傅。', ordersTitle: '醬料清單', ordersSubtitle: '量好後交到右側驗收檯，不需要盤子。',
+    resultTitle: '醬料入味課完成', resultMessage: '阿明：醬料都量好了！接下來可以挑戰第一晚開張。',
+    reject: '阿明：請交量好的三杯醬或醬油。瓶子要先在量杯區量過。'
   }));
   LEVELS.push(lesson({
-    id: 'juice-school', course: 'juice', name: '開店前的果汁課', subtitle: '調一杯冰飲再交付', description: '阿明：檸檬汁是檸檬片、糖漿、冰塊；梅子汁把檸檬換成脆梅。材料齊了，按住 F 調配。',
+    id: 'juice-school', course: 'juice', name: '開店前的果汁課', subtitle: '照片數、cc、塊數調一杯', description: '阿明：檸檬汁是檸檬 2 片、糖漿 30 cc、冰塊 3 塊。梅子汁是脆梅 2 顆、糖漿 25 cc、冰塊 3 塊。',
     stations: ['lemon', 'syrup', 'ice', 'plum', 'juice-bar', 'counter', 'serve', 'trash'], goals: [{ id: 'lemonJuice', count: 2 }, { id: 'plumJuice', count: 1 }],
-    card: '不限時 · 調配後交付', timing: '不限時 · 無客人催單 · 完成清單即可過關',
-    toast: '阿明：材料放到果汁調配台，齊了按住 F，再把杯子交到驗收檯！',
-    steps: '① 冰檸檬汁：檸檬片＋糖漿＋冰塊。冰梅子汁：脆梅＋糖漿＋冰塊。<br>② 一次一杯，材料可以分次放上。齊了空手按住 F 約兩秒。<br>③ E 拿起杯子，交到右側驗收檯。組合不對就拿去廚餘桶。',
-    tip: '一次只調一杯。冰檸檬汁要 2 杯，冰梅子汁要 1 杯。',
-    phaseLabel: '果汁練習', phaseNote: '阿明：飲料也是備料，調好再交，不趕時間。', ordersTitle: '果汁清單', ordersSubtitle: '調好後交到右側驗收檯，不需要餐盤。',
+    measure: 'juice',
+    card: '不限時 · 細量後調配', timing: '不限時 · 無客人催單 · 完成清單即可過關',
+    toast: '阿明：拿著材料在果汁台按 E 一點一點倒，份量到了放下來按住 F！',
+    steps: '① 冰檸檬汁：檸檬 2 片、糖漿 30 cc、冰塊 3 塊。冰梅子汁：脆梅 2 顆、糖漿 25 cc、冰塊 3 塊。糖漿可以 ±5 cc。<br>② 一次一杯。E 拿材料，在果汁台每按一次 E：片、顆、塊 +1，糖漿 +5 cc。下方會顯示進度。<br>③ 份量到了，放下材料，空手按住 F 約兩秒，再把杯子交到驗收檯。倒太多不能調，空手 E 倒回，或到廚餘桶清空。',
+    tip: '冰檸檬汁 2 杯、冰梅子汁 1 杯。糖漿每次倒 5 cc。片數和冰塊要剛好。',
+    phaseLabel: '果汁練習', phaseNote: '阿明：照片數、cc、塊數調好再交，不趕時間。', ordersTitle: '果汁清單', ordersSubtitle: '調好後交到右側驗收檯，不需要餐盤。',
     resultTitle: '果汁課完成', resultMessage: '阿明：飲料都準備好了！接下來可以挑戰第一晚開張。',
     reject: '阿明：請交調好的冰檸檬汁或冰梅子汁。'
   }));
@@ -142,6 +146,54 @@
   }
   const juiceRecipe = ingredients => Object.keys(JUICE_RECIPES).find(key => ingredients.length === JUICE_RECIPES[key].length && JUICE_RECIPES[key].every(id => ingredients.includes(id)));
   const juicePossible = ingredients => ingredients.length <= 3 && new Set(ingredients).size === ingredients.length && Object.values(JUICE_RECIPES).some(recipe => ingredients.every(id => recipe.includes(id)));
+  // Training juice pours in 5 cc steps so the ±5 cc syrup band is one pour either way.
+  // Service nights keep the coarse one-of-each recipe above and never read these targets.
+  const SYRUP_STEP_CC = 5, SYRUP_TOLERANCE_CC = 5;
+  const JUICE_PARTS = ['lemon', 'plum', 'syrup', 'ice'];
+  const TRAINING_JUICE = {
+    lemonJuice: { lemon: 2, syrup: 30, ice: 3 },
+    plumJuice: { plum: 2, syrup: 25, ice: 3 }
+  };
+  const JUICE_PART_LABEL = { lemon: ['檸檬', '片'], plum: ['脆梅', '顆'], syrup: ['糖漿', 'cc'], ice: ['冰塊', '塊'] };
+  const SAUCE_SPOONS = { sauce: 2, soy: 1 };
+  const SAUCE_CC = { sauce: 30, soy: 15 };
+  const emptyJuiceMix = () => ({ lemon: 0, plum: 0, syrup: 0, ice: 0 });
+  const juiceTolerance = id => id === 'syrup' ? SYRUP_TOLERANCE_CC : 0;
+  function measuredJuiceMatch(mix) {
+    if (!mix) return null;
+    return Object.keys(TRAINING_JUICE).find(key => JUICE_PARTS.every(id => Math.abs((mix[id] || 0) - (TRAINING_JUICE[key][id] || 0)) <= juiceTolerance(id))) || null;
+  }
+  function juiceStillPossible(mix, key) {
+    const target = TRAINING_JUICE[key];
+    if ((mix.lemon || 0) > 0 && key === 'plumJuice') return false;
+    if ((mix.plum || 0) > 0 && key === 'lemonJuice') return false;
+    return JUICE_PARTS.every(id => (mix[id] || 0) <= (target[id] || 0) + juiceTolerance(id));
+  }
+  function juiceOvershot(mix) {
+    if (!mix || !JUICE_PARTS.some(id => (mix[id] || 0) > 0)) return false;
+    return !measuredJuiceMatch(mix) && !Object.keys(TRAINING_JUICE).some(key => juiceStillPossible(mix, key));
+  }
+  function juiceMeasureLines(mix) {
+    const safe = mix || emptyJuiceMix();
+    const matched = measuredJuiceMatch(safe);
+    const viable = Object.keys(TRAINING_JUICE).filter(key => juiceStillPossible(safe, key));
+    const keys = matched ? [matched] : viable.length ? viable : Object.keys(TRAINING_JUICE);
+    return keys.map(key => {
+      const bits = Object.entries(TRAINING_JUICE[key]).map(([id, want]) => `${JUICE_PART_LABEL[id][0]} ${safe[id] || 0}／${want} ${JUICE_PART_LABEL[id][1]}`);
+      const over = !matched && !viable.includes(key);
+      return `${DRINKS[key].name}　${bits.join(' · ')}${over ? ' · 超過' : ''}`;
+    });
+  }
+  function juiceTargetText(key) {
+    const target = TRAINING_JUICE[key];
+    if (!target) return '';
+    return Object.entries(target).map(([id, want]) => `${JUICE_PART_LABEL[id][0]} ${want} ${JUICE_PART_LABEL[id][1]}`).join(' · ');
+  }
+  function sauceMeasureLine(cup) {
+    if (!cup?.spoons || !cup.sauceId) return '量杯區　三杯醬 0／2 大匙（約 30 cc） · 醬油 0／1 大匙（約 15 cc）';
+    const name = ITEMS[cup.sauceId].name, target = SAUCE_SPOONS[cup.sauceId];
+    return `${name}　${cup.spoons}／${target} 大匙（約 ${SAUCE_CC[cup.sauceId]} cc）`;
+  }
   const emptyWok = () => ({ state: 'empty', ingredients: [], portions: 0, remaining: 0, elapsed: 0, recipe: null, flipped: false, readyTime: 0, clearProgress: 0 });
   // Lesson juice crates share the top row, and that lesson's juice bar stands where the cutting board is.
   // A service night that needs both keeps the board at (4, 4) and moves juice gear onto spots this menu leaves empty.
@@ -149,7 +201,13 @@
     lemon: { x: 7, y: 1 }, syrup: { x: 9, y: 1 }, ice: { x: 11, y: 1 }, plum: { x: 13, y: 1 }, 'juice-bar': { x: 4, y: 6 }
   };
   function getStations(level) {
-    if (level.mode === 'training') return STATIONS.filter(s => level.stations.includes(s.id)).map(s => ({ ...s, name: s.id === 'serve' ? '驗收檯' : s.name, item: null, progress: 0, ...(s.type === 'juice' ? { ingredients: [] } : {}) }));
+    if (level.mode === 'training') return STATIONS.filter(s => level.stations.includes(s.id)).map(s => ({
+      ...s,
+      name: s.id === 'serve' ? '驗收檯' : level.measure === 'sauce' && s.id === 'counter' ? '量杯區' : s.name,
+      item: null, progress: 0,
+      ...(s.type === 'juice' ? (level.measure === 'juice' ? { ingredients: [], mix: emptyJuiceMix(), pours: [] } : { ingredients: [] }) : {}),
+      ...(level.measure === 'sauce' && s.id === 'counter' ? { spoons: 0, sauceId: null } : {})
+    }));
     const ingredients = new Set(level.menu.flatMap(key => menuOffer(key)?.ingredients || []));
     const needsJuice = level.menu.some(key => DRINKS[key]);
     return STATIONS.filter(s => {
@@ -194,9 +252,16 @@
       if (this.paused || this.phase === 'ended') return;
       const s = this.stations.find(s => s.id === id); if (!s) return;
       if (s.type === 'supply') {
+        if (this.held?.bottle && this.held.id === s.supply) { this.held = null; this.message('瓶子放回去了。'); return; }
+        if (this.held?.source && this.held.id === s.supply) { this.held = null; this.message(ITEMS[s.supply].name + '放回去了。'); return; }
         if (this.held) return this.message('先把手上的東西放下。');
-        this.held = { id: s.supply }; this.message('拿到了' + ITEMS[s.supply].name);
-      } else if (s.type === 'board' || s.type === 'counter') {
+        const held = { id: s.supply };
+        if (this.level.measure === 'juice' && JUICE_PARTS.includes(s.supply)) held.source = true;
+        if (this.level.measure === 'sauce' && SAUCE_SPOONS[s.supply]) held.bottle = true;
+        this.held = held;
+        this.message(held.bottle ? '拿到了' + ITEMS[s.supply].name + '瓶子，到量杯區量。' : held.source ? '拿到了' + ITEMS[s.supply].name + '，到果汁台按 E 倒。' : '拿到了' + ITEMS[s.supply].name);
+      } else if (s.type === 'counter' && this.level.measure === 'sauce') this.interactMeasure(s);
+      else if (s.type === 'board' || s.type === 'counter') {
         if (!this.held && s.item) { this.held = s.item; s.item = null; s.progress = 0; this.message('拿起' + ITEMS[this.held.id].name); }
         else if (this.held && !s.item) {
           if (s.type === 'board' && !ITEMS[this.held.id].processed && !ITEMS[this.held.id].chopped) return this.message(this.level.mode === 'training' && ITEMS[this.held.id].boardMessage || '砧板只放需要切的蔬菜或肉類，其他物品可放備料檯。');
@@ -219,7 +284,10 @@
       else if (s.type === 'serve') this.serve();
       else if (s.type === 'juice') this.interactJuice(s);
       else if (s.type === 'trash') {
-        if (!this.held) return this.message('沒有需要丟棄的東西。');
+        if (!this.held) {
+          if (this.clearTrainingMeasure()) return;
+          return this.message('沒有需要丟棄的東西。');
+        }
         if (this.held.id === 'plate') return this.message('餐盤可以放回餐盤架。');
         const dish = ITEMS[this.held.id].kind === 'dish'; this.held = dish ? { id: 'plate' } : null; this.wasted++; this.message('已清理，繼續加油。');
       }
@@ -252,7 +320,56 @@
       }).join(' 或 ');
     }
     clearWok(id = 'wok') { if (this.woks[id]) this.woks[id] = emptyWok(); }
+    clearTrainingMeasure() {
+      if (this.level.measure === 'sauce') {
+        const cup = this.stations.find(st => st.id === 'counter');
+        if (cup?.spoons > 0) { cup.spoons = 0; cup.sauceId = null; this.wasted++; this.message('量杯倒掉了，重新量。'); return true; }
+      }
+      if (this.level.measure === 'juice') {
+        const bar = this.stations.find(st => st.type === 'juice');
+        if (bar && JUICE_PARTS.some(id => (bar.mix?.[id] || 0) > 0)) {
+          bar.mix = emptyJuiceMix(); bar.pours = []; bar.progress = 0; this.wasted++;
+          this.message('果汁台清掉了，重新調。'); return true;
+        }
+      }
+      return false;
+    }
+    addSpoon(s, id) {
+      if (s.spoons > 0 && s.sauceId && s.sauceId !== id) return this.message('量杯裡是另一種醬，先到廚餘桶倒掉。');
+      s.sauceId = id; s.spoons += 1;
+      const target = SAUCE_SPOONS[id], name = ITEMS[id].name;
+      if (s.spoons > target) this.message(`${name} ${s.spoons}／${target} 大匙，超過了，不能拿起來交付。到廚餘桶倒掉重來。`);
+      else if (s.spoons === target) this.message(`${name}剛好 ${target} 大匙。按 E 拿起這一份；再按 F 會超量。`);
+      else this.message(`${name} ${s.spoons}／${target} 大匙。`);
+    }
+    takePortion(s) {
+      const portionId = s.sauceId === 'sauce' ? 'saucePortion' : 'soyPortion';
+      this.held = { id: portionId }; s.spoons = 0; s.sauceId = null;
+      this.message(`拿到量好的${ITEMS[portionId].name} ${ITEMS[portionId].spoons} 大匙，送到驗收檯。`, 'done');
+    }
+    interactMeasure(s) {
+      if (this.held?.bottle) {
+        if (s.spoons > 0 && s.sauceId && s.sauceId !== this.held.id) return this.message('量杯裡是另一種醬，先到廚餘桶倒掉。');
+        if (s.sauceId === this.held.id && s.spoons === SAUCE_SPOONS[s.sauceId]) return this.takePortion(s);
+        return this.addSpoon(s, this.held.id);
+      }
+      if (!this.held) {
+        if (s.spoons > 0 && s.spoons === SAUCE_SPOONS[s.sauceId]) return this.takePortion(s);
+        if (s.spoons > (SAUCE_SPOONS[s.sauceId] || 0)) return this.message(`現在是 ${s.spoons}／${SAUCE_SPOONS[s.sauceId]} 大匙，太多了。到廚餘桶倒掉，不會自動改成剛好。`);
+        if (s.spoons > 0) return this.message(`現在是 ${s.spoons}／${SAUCE_SPOONS[s.sauceId]} 大匙，再加 ${SAUCE_SPOONS[s.sauceId] - s.spoons} 大匙。`);
+        return this.message('先拿三杯醬或醬油，在這裡按 E 或 F 加 1 大匙。');
+      }
+      if (ITEMS[this.held.id].portion) return this.message('先把量好的醬交到驗收檯。');
+      return this.message('量杯區只能量三杯醬和醬油。');
+    }
+    actionMeasure(s) {
+      if (!s) return;
+      if (!this.held?.bottle) return this.message('先拿三杯醬或醬油，再按 F 加 1 大匙。');
+      if (s.spoons > 0 && s.sauceId && s.sauceId !== this.held.id) return this.message('量杯裡是另一種醬，先到廚餘桶倒掉。');
+      this.addSpoon(s, this.held.id);
+    }
     interactJuice(s) {
+      if (this.level.measure === 'juice') return this.interactMeasuredJuice(s);
       if (s.item) {
         if (this.held) return this.message('先把手上的東西放下。');
         this.held = s.item; s.item = null; this.message('拿到了' + ITEMS[this.held.id].name); return;
@@ -268,8 +385,33 @@
       const id = s.ingredients.pop(); s.progress = 0; this.held = { id };
       this.message('拿回' + ITEMS[id].name + '，不需要就丟進廚餘桶。');
     }
+    interactMeasuredJuice(s) {
+      if (s.item) {
+        if (this.held) return this.message('先把手上的東西放下。');
+        this.held = s.item; s.item = null; this.message('拿到了' + ITEMS[this.held.id].name); return;
+      }
+      if (this.held?.source && JUICE_PARTS.includes(this.held.id)) {
+        const id = this.held.id;
+        if ((id === 'lemon' && s.mix.plum > 0) || (id === 'plum' && s.mix.lemon > 0)) return this.message('一次只調一種果汁。先倒回，或到廚餘桶清空。');
+        const step = id === 'syrup' ? SYRUP_STEP_CC : 1;
+        s.mix[id] += step; s.pours.push(id); s.progress = 0;
+        const unit = id === 'syrup' ? `${step} cc` : id === 'ice' ? '1 塊' : id === 'plum' ? '1 顆' : '1 片';
+        const matched = measuredJuiceMatch(s.mix);
+        if (matched) this.message(`倒入${unit}。${ITEMS[matched].name}份量到了，放下材料後按住 F 約兩秒。`);
+        else if (juiceOvershot(s.mix)) this.message(`倒入${unit}，超過了，不能調配。空手按 E 倒回上一步，或到廚餘桶清空。`);
+        else this.message('倒入' + unit + '。');
+        return;
+      }
+      if (this.held) return this.message('果汁台只能倒檸檬片、脆梅、糖漿或冰塊。');
+      if (!s.pours.length) return this.message('先拿材料，在果汁台按 E 倒。片、顆、塊各 +1，糖漿每次 +5 cc。');
+      const id = s.pours.pop();
+      s.mix[id] -= id === 'syrup' ? SYRUP_STEP_CC : 1; s.progress = 0;
+      this.message('倒回了上一步。不對的話也可以到廚餘桶整杯倒掉。');
+    }
     action(id) {
-      if (this.paused || this.phase === 'ended' || !this.woks[id]) return;
+      if (this.paused || this.phase === 'ended') return;
+      if (this.level.measure === 'sauce' && id === 'counter') return this.actionMeasure(this.stations.find(st => st.id === 'counter'));
+      if (!this.woks[id]) return;
       const w = this.woks[id];
       if (w.state === 'loading') {
         const recipe = recipeFor(w.ingredients, this.level.menu);
@@ -321,12 +463,15 @@
         if (board.progress >= chopDuration(board.item, this.mods)) { board.item.id = ITEMS[board.item.id].processed; board.progress = chopDuration(board.item, this.mods); this.message('切好了！按 E 拿起食材。', 'done'); }
       }
       const juicer = this.stations.find(s => s.type === 'juice' && s.id === workingStation);
-      if (juicer && !this.held && !juicer.item && juiceRecipe(juicer.ingredients)) {
-        juicer.progress += dt;
-        if (juicer.progress >= MIX_TIME) {
-          const id = juiceRecipe(juicer.ingredients);
-          juicer.item = { id }; juicer.ingredients = []; juicer.progress = 0;
-          this.message('調好了！按 E 拿起' + ITEMS[id].name + '。', 'done');
+      if (juicer && !this.held && !juicer.item) {
+        const id = this.level.measure === 'juice' ? measuredJuiceMatch(juicer.mix) : juiceRecipe(juicer.ingredients);
+        if (id) {
+          juicer.progress += dt;
+          if (juicer.progress >= MIX_TIME) {
+            juicer.item = { id }; juicer.ingredients = []; juicer.progress = 0;
+            if (juicer.mix) { juicer.mix = emptyJuiceMix(); juicer.pours = []; }
+            this.message('調好了！按 E 拿起' + ITEMS[id].name + '。', 'done');
+          }
         }
       }
       if (this.level.mode === 'training') return;
@@ -358,8 +503,8 @@
     }
     finish() { if (this.phase === 'ended') return; this.expired += this.orders.length; this.orders = []; this.phase = 'ended'; this.time = 0; }
   }
-  const VERSION = '0.12.0';
-  const api = { VERSION, Kitchen, ITEMS, RECIPES, DRINKS, JUICE_RECIPES, menuOffer, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor, portionsFor, cookDuration, chopDuration, MIX_TIME, juiceRecipe, CHEF_STATS, getChefModifiers, flipWindowText };
+  const VERSION = '0.13.0';
+  const api = { VERSION, Kitchen, ITEMS, RECIPES, DRINKS, JUICE_RECIPES, TRAINING_JUICE, SAUCE_SPOONS, SAUCE_CC, SYRUP_STEP_CC, SYRUP_TOLERANCE_CC, menuOffer, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor, portionsFor, cookDuration, chopDuration, MIX_TIME, juiceRecipe, measuredJuiceMatch, juiceOvershot, juiceMeasureLines, juiceTargetText, sauceMeasureLine, CHEF_STATS, getChefModifiers, flipWindowText };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HotStirFry = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

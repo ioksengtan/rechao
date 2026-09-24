@@ -138,7 +138,7 @@ test('lunch is listed under service without changing the other nights or lesson 
   assert.equal(ui.game.phase, 'prep');
   assert.ok(ui.game.time < 10 && ui.game.time > 9);
   const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
-  assert.match(readme, /Current version: 0\.12\.0/);
+  assert.match(readme, /Current version: 0\.13\.0/);
   assert.match(readme, /午休小局/);
   assert.match(readme, /\$80／\$200／\$450/);
 });
