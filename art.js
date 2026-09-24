@@ -9,7 +9,7 @@
     floor: '#c9c6a5', floorAlt: '#d1cdb1', wood: '#c18e55'
   };
   function createRenderer(ctx, data) {
-    const { ITEMS, RECIPES, cookDuration, chopDuration, MIX_TIME } = data;
+    const { ITEMS, menuOffer, cookDuration, chopDuration, MIX_TIME } = data;
     const state = { clock: 0, effects: [], tosses: {}, gesture: null, tables: {}, shake: null, seen: null };
     const REACTIONS = ['好吃！', '讚啦！', '好香喔！', '再來一盤！', '老闆，厲害！', '鍋氣十足！'];
     const HURRY = ['老闆，我的菜呢～', '還要等很久嗎？', '肚子好餓喔……'];
@@ -65,6 +65,13 @@
       } else if (recipe === 'beef') {
         for (let i = 0; i < 7; i++) { ctx.save(); ctx.translate(Math.sin(i * 2.8) * 12, Math.cos(i * 2.1) * 7 - 2); ctx.rotate(i * .6); oval(0, 0, 10, 4, '#89543f', '#624638', 1); line([[-6, -1], [4, -2]], '#bd8960', 1.5); ctx.restore(); }
         for (let i = 0; i < 6; i++) { ctx.save(); ctx.translate(-15 + i * 6, Math.sin(i * 3) * 7 - 2); ctx.rotate(i); box(-1, -5, 3, 12, i % 2 ? '#bfc681' : '#749549', 1); ctx.restore(); }
+      } else if (recipe === 'onionEgg') {
+        oval(0, 2, 18, 11, '#f6f1e4', '#cbb892', 1);
+        oval(1, -1, 16, 10, '#fffaf0');
+        oval(3, -1, 7, 5.5, '#f0b429', '#c98616', 1);
+        oval(2, -2, 3, 2.2, '#ffe7a0');
+        for (let i = 0; i < 5; i++) { ctx.save(); ctx.translate(-11 + i * 5.5, Math.sin(i * 1.7) * 5); ctx.rotate(-.4 + i * .25); box(-1, -5, 2.2, 9, i % 2 ? '#6ea24a' : '#c5d48a', 1); ctx.restore(); }
+        oval(-8, 4, 2.2, 1.3, '#5a3824'); oval(9, 2, 1.6, 1, '#4a2e20');
       } else if (recipe === 'chicken') {
         oval(0, 1, 20, 10, '#a36335');
         for (let i = 0; i < 6; i++) { const px = Math.sin(i * 2) * 13, py = Math.cos(i * 2) * 6 - 3; box(px - 5, py - 4, 11, 9, '#ba8045', 3, '#855435', 1); line([[px - 2, py - 2], [px + 3, py - 3]], '#e5b16a', 1.5); }
@@ -277,7 +284,10 @@
         line([[x + 23, y - 13], [x + 33, y - 6]], '#755744', 1.5); line([[x + 26, y - 14], [x + 35, y - 7]], '#755744', 1.5);
         box(x - 4, y - 22, 8, 13, '#faf1d4', 1, '#a4966c', 1); label(String(i + 1), x, y - 15, 9, '#776a43');
         const delivery = state.tables[i + 1];
-        if (delivery && state.clock >= delivery.arrivesAt) { dish(delivery.recipe, x, y, .75); steam(x, y - 8, .35); }
+        if (delivery && state.clock >= delivery.arrivesAt) {
+          if (ITEMS[delivery.recipe]?.kind === 'juice') item(delivery.recipe, x, y, .75);
+          else { dish(delivery.recipe, x, y, .75); steam(x, y - 8, .35); }
+        }
         else { box(x - 4, y - 3, 8, 10, '#838c69', 2); box(x - 3, y - 8, 6, 6, '#e1d2ab', 1); }
         const waiting = game.orders.filter(o => o.table === i + 1).length;
         if (waiting) badge(`${i + 1} 桌 · 等 ${waiting} 道`, x, y + 64, 112, '#e9d8ad', '#746247');
@@ -403,7 +413,9 @@
         } else if (fx.kind === 'delivery') {
           const startX = OFFSET.x + 14 * 60 + 30, startY = OFFSET.y + 6 * 60 + 30;
           const endY = 220 + (fx.table - 1) * 158;
-          dish(fx.recipe, startX + (1077 - startX) * p, startY + (endY - startY) * p - Math.sin(p * Math.PI) * 35, .85);
+          const dx = startX + (1077 - startX) * p, dy = startY + (endY - startY) * p - Math.sin(p * Math.PI) * 35;
+          if (ITEMS[fx.recipe]?.kind === 'juice') item(fx.recipe, dx, dy, .85);
+          else dish(fx.recipe, dx, dy, .85);
         } else {
           for (let i = 0; i < 7; i++) { const angle = i * Math.PI * 2 / 7; const x = OFFSET.x + fx.x + Math.cos(angle) * p * 38, y = OFFSET.y + fx.y + Math.sin(angle) * p * 22 - p * 14; box(x, y, 3, 3, fx.color, 1); }
         }
@@ -430,7 +442,7 @@
         if (now === 'burned') { state.effects.push({ kind: 'smoke', x, y, remaining: 1.2, duration: 1.2 }, { kind: 'float', text: '燒焦了！', color: '#f3b39a', x, y, remaining: 1.1, duration: 1.1 }); shake(5, .35); }
       }
       for (const o of game.orders) {
-        if (!seen.orders.includes(o.id)) say(o.table, `老闆！${RECIPES[o.recipe].name}一份！`, 2.6);
+        if (!seen.orders.includes(o.id)) { const offer = menuOffer(o.recipe); say(o.table, `老闆！${offer.name}${offer.kind === 'drink' ? '一杯' : '一份'}！`, 2.6); }
         else if (urgent.includes(o.id) && !seen.urgent.includes(o.id)) say(o.table, HURRY[o.id % HURRY.length], 2.4, 0, true);
       }
       state.seen = { woks, orders, urgent };
@@ -447,7 +459,8 @@
       if (state.shake) { state.shake.remaining -= dt; if (state.shake.remaining <= 0) state.shake = null; }
     }
     function snapshot(game) {
-      const recipe = game.held && ITEMS[game.held.id].recipe;
+      const held = game.held && ITEMS[game.held.id];
+      const recipe = held && (held.recipe || (held.kind === 'juice' ? game.held.id : undefined));
       const order = recipe && game.orders.filter(o => o.recipe === recipe).sort((a, b) => a.remaining - b.remaining)[0];
       return { held: game.held?.id, served: game.served, recipe, table: order?.table, flips: game.flips, revenue: game.revenue };
     }

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { Kitchen, LEVELS, RECIPES, ITEMS, getStations, starCount } = require('../game-core.js');
+const { Kitchen, LEVELS, RECIPES, ITEMS, getStations, starCount, menuOffer } = require('../game-core.js');
 const { Progress, KEY } = require('../progress.js');
 const { createPlayer, blocked, findTarget, movePlayer } = require('../movement.js');
 
@@ -57,7 +57,10 @@ test('levels restrict supplies, menus, order limits and provide all recipes fair
     assert.equal(Object.keys(g.woks).length, level.woks);
     if (level.mode === 'training') { g.addOrder(); assert.equal(g.orders.length, 0); assert.ok(!g.stations.some(s => s.type === 'wok' || s.type === 'plates')); continue; }
     for (const s of g.stations.filter(s => s.type === 'supply')) {
-      assert.ok(level.menu.some(key => RECIPES[key].ingredients.includes(s.supply) || RECIPES[key].ingredients.includes(ITEMS[s.supply].processed)));
+      assert.ok(level.menu.some(key => {
+        const offer = menuOffer(key);
+        return offer.ingredients.includes(s.supply) || offer.ingredients.includes(ITEMS[s.supply].processed);
+      }));
     }
     const recipes = new Set();
     for (let i=0; i<level.menu.length; i++) { g.addOrder(); recipes.add(g.orders[0].recipe); g.orders = []; }
