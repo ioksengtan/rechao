@@ -1,1 +1,22 @@
-<svg stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 96"><ellipse cx="62" cy="71" rx="49" ry="19" fill="#3a4038" opacity=".12"/><ellipse cx="60" cy="57" rx="49" ry="29" fill="#d9d0bc" stroke="#3c4338" stroke-width="2"/><ellipse cx="60" cy="52" rx="49" ry="28" fill="#f4ecd8" stroke="#3c4338" stroke-width="2"/><ellipse cx="60" cy="52" rx="41" ry="22" fill="#e4d8c0" stroke="#7f9488" stroke-width="2"/><ellipse cx="60" cy="53" rx="35" ry="18" fill="#9a7048"/><g fill="#7a5640" stroke="#5c4638" stroke-width="1.5"><path d="M27 42q10-14 31-8l-7 12-17 6Z"/><path d="M59 30q22-4 29 12l-17 9-13-10Z"/><path d="M23 52q13-11 28-4l10 13-24 6Z"/><path d="M51 47q16-14 26 4l-7 14-17-3Z"/><path d="M76 48q24-8 23 8l-15 12-15-6Z"/></g><g fill="none" stroke="#c4a07a" stroke-width="2" stroke-linecap="round"><path d="M33 42q9-7 17-3m16-4q12 1 14 7M31 53l14 5m15-7l6 7m14-3l12-1"/></g><g stroke="#4e7354" stroke-width="1"><path d="M37 28l5 1 11 36-6 2Z" fill="#a3b07a"/><path d="M65 29l5 3-22 37-6-3Z" fill="#6d8f58"/><path d="M83 36l4 4-22 30-6-4Z" fill="#c5d0a4"/><path d="M30 51l2-5 61 11-2 6Z" fill="#7d9a68"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 96" stroke-linejoin="round" stroke-linecap="round">
+  <ellipse cx="62" cy="74" rx="40" ry="12" fill="#5c5144" opacity=".12"/>
+  <ellipse cx="60" cy="58" rx="46" ry="26" fill="#e7dcc8" stroke="#3a4238" stroke-width="1.3"/>
+  <ellipse cx="60" cy="54" rx="44" ry="24" fill="#f7f3ea" stroke="#3a4238" stroke-width="1.15"/>
+  <ellipse cx="60" cy="54" rx="34" ry="16" fill="#efe4d2" stroke="#8d9c90" stroke-width=".7"/>
+  <g fill="#8d5a42" stroke="#5c382c" stroke-width=".8">
+    <path d="M30 48c8-12 24-8 28-2l-8 10-16 4z"/>
+    <path d="M58 36c16-6 28 6 26 14l-16 8-12-8z"/>
+    <path d="M28 58c10-8 24-2 28 6l-6 10-22-2z"/>
+    <path d="M54 52c12-10 24 2 20 12l-14 6-12-6z"/>
+    <path d="M74 50c14-8 24 2 20 12l-16 8-12-8z"/>
+  </g>
+  <g fill="none" stroke="#e4c2a4" stroke-width="1.2">
+    <path d="M36 46c6-4 12-2 14 0M62 42c8 1 12 4 12 6M34 62l10 3M58 58l8 4"/>
+  </g>
+  <g stroke="#4e7354" stroke-width=".6">
+    <path d="M40 34l3 2 6 22-4 1z" fill="#a3b07a"/>
+    <path d="M62 32l4 2-14 24-4-2z" fill="#6d8f58"/>
+    <path d="M78 40l3 3-12 18-4-2z" fill="#c5d4a4"/>
+  </g>
+  <ellipse cx="78" cy="58" rx="10" ry="6" fill="#6a382c" opacity=".12"/>
+</svg>
