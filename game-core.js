@@ -11,13 +11,15 @@
     lemon: { name: '檸檬片', kind: 'lemon' }, syrup: { name: '糖漿', kind: 'syrup' }, ice: { name: '冰塊', kind: 'ice' }, plum: { name: '脆梅', kind: 'plum' },
     lemonJuice: { name: '冰檸檬汁', kind: 'juice', drink: 'lemon' }, plumJuice: { name: '冰梅子汁', kind: 'juice', drink: 'plum' },
     greensDish: { name: '清炒青菜', kind: 'dish', recipe: 'greens' }, riceDish: { name: '黃金蛋炒飯', kind: 'dish', recipe: 'rice' },
-    beefDish: { name: '蔥爆牛肉', kind: 'dish', recipe: 'beef' }, chickenDish: { name: '三杯雞', kind: 'dish', recipe: 'chicken' }
+    beefDish: { name: '蔥爆牛肉', kind: 'dish', recipe: 'beef' }, chickenDish: { name: '三杯雞', kind: 'dish', recipe: 'chicken' },
+    onionEggDish: { name: '蔥花蛋', kind: 'dish', recipe: 'onionEgg' }
   };
   const RECIPES = {
     greens: { name: '清炒青菜', ingredients: ['choppedGreens'], cookTime: 5, price: 80, patience: 75, dish: 'greensDish' },
     rice: { name: '黃金蛋炒飯', ingredients: ['choppedScallion', 'egg', 'rice'], cookTime: 7, price: 120, patience: 90, dish: 'riceDish' },
     beef: { name: '蔥爆牛肉', ingredients: ['choppedBeef', 'choppedScallion'], cookTime: 8, price: 180, patience: 105, dish: 'beefDish' },
-    chicken: { name: '三杯雞', ingredients: ['choppedChicken', 'basil', 'sauce'], cookTime: 10, price: 220, patience: 120, dish: 'chickenDish' }
+    chicken: { name: '三杯雞', ingredients: ['choppedChicken', 'basil', 'sauce'], cookTime: 10, price: 220, patience: 120, dish: 'chickenDish' },
+    onionEgg: { name: '蔥花蛋', ingredients: ['choppedScallion', 'egg', 'soy'], cookTime: 6, price: 100, patience: 85, dish: 'onionEggDish' }
   };
   const LEVELS = [
     { id: 'opening', course: 'service', name: '第一晚開張', subtitle: '先學一手好菜', description: '兩道經典、一口炒鍋。從切料到上菜，找到自己的節奏。', menu: ['greens', 'rice'], woks: 1, prepTime: 20, serviceTime: 180, closingTime: 45, maxOrders: 2, orderInterval: 18, plateCount: 4, stars: [160, 450, 900], firstOrders: ['greens', 'rice'] },
@@ -75,6 +77,7 @@
     reject: '阿明：請交調好的冰檸檬汁或冰梅子汁。'
   }));
   LEVELS.push({ id: 'lunch', course: 'service', name: '午休小局', subtitle: '通勤一局，十分鐘內打烊', description: '菜單跟第一晚一樣，但時間更短。適合手機上快速打一局。', menu: ['greens', 'rice'], woks: 1, prepTime: 10, serviceTime: 90, closingTime: 30, maxOrders: 2, orderInterval: 14, plateCount: 4, stars: [80, 200, 450], firstOrders: ['greens', 'rice'] });
+  LEVELS.push({ id: 'afternoon', course: 'service', name: '午後來一杯', subtitle: '飲料上桌，蔥花蛋也要', description: '練習把果汁和醬油炒菜一起出。青菜救急，蔥花蛋要用醬油，兩種冰飲在果汁調配台調。', menu: ['greens', 'onionEgg', 'lemonJuice', 'plumJuice'], woks: 1, prepTime: 12, serviceTime: 100, closingTime: 30, maxOrders: 2, orderInterval: 15, plateCount: 4, stars: [100, 280, 520], firstOrders: ['onionEgg', 'lemonJuice'] });
   const STATIONS = [
     { id: 'greens', type: 'supply', supply: 'greens', x: 1, y: 1, name: '青菜箱' },
     { id: 'egg', type: 'supply', supply: 'egg', x: 3, y: 1, name: '雞蛋箱' },
@@ -101,13 +104,14 @@
     { id: 'trash', type: 'trash', x: 7, y: 8, name: '廚餘桶' }
   ];
   const portionsFor = ingredients => Math.max(0, ...ingredients.map(id => ingredients.filter(i => i === id).length));
+  const wokMenu = menu => menu.filter(key => RECIPES[key]);
   function recipeFor(ingredients, menu = Object.keys(RECIPES)) {
     const n = portionsFor(ingredients);
-    return n >= 1 && n <= 3 ? menu.find(key => ingredients.length === RECIPES[key].ingredients.length * n && RECIPES[key].ingredients.every(id => ingredients.filter(i => i === id).length === n)) : undefined;
+    return n >= 1 && n <= 3 ? wokMenu(menu).find(key => ingredients.length === RECIPES[key].ingredients.length * n && RECIPES[key].ingredients.every(id => ingredients.filter(i => i === id).length === n)) : undefined;
   }
   function canAdd(ingredients, id, menu = Object.keys(RECIPES)) {
     const proposed = [...ingredients, id];
-    return portionsFor(proposed) <= 3 && menu.some(key => proposed.every(i => RECIPES[key].ingredients.includes(i)));
+    return portionsFor(proposed) <= 3 && wokMenu(menu).some(key => proposed.every(i => RECIPES[key].ingredients.includes(i)));
   }
   const cookDuration = w => RECIPES[w.recipe].cookTime * (1 + .4 * ((w.portions || 1) - 1));
   // Chef stats run 0–100; one conversion keeps the kitchen, HUD and art in agreement.
@@ -127,13 +131,33 @@
   const MIX_TIME = 2;
   const flipWindowText = mods => `${Math.round(mods.flipStart * 100)}%～${Math.round(mods.flipEnd * 100)}%`;
   const JUICE_RECIPES = { lemonJuice: ['lemon', 'syrup', 'ice'], plumJuice: ['plum', 'syrup', 'ice'] };
+  const DRINKS = {
+    lemonJuice: { name: '冰檸檬汁', ingredients: JUICE_RECIPES.lemonJuice, price: 70, patience: 70 },
+    plumJuice: { name: '冰梅子汁', ingredients: JUICE_RECIPES.plumJuice, price: 70, patience: 70 }
+  };
+  function menuOffer(key) {
+    if (RECIPES[key]) return { key, kind: 'dish', ...RECIPES[key] };
+    const drink = DRINKS[key];
+    return drink ? { key, kind: 'drink', name: drink.name, ingredients: drink.ingredients, price: drink.price, patience: drink.patience } : null;
+  }
   const juiceRecipe = ingredients => Object.keys(JUICE_RECIPES).find(key => ingredients.length === JUICE_RECIPES[key].length && JUICE_RECIPES[key].every(id => ingredients.includes(id)));
   const juicePossible = ingredients => ingredients.length <= 3 && new Set(ingredients).size === ingredients.length && Object.values(JUICE_RECIPES).some(recipe => ingredients.every(id => recipe.includes(id)));
   const emptyWok = () => ({ state: 'empty', ingredients: [], portions: 0, remaining: 0, elapsed: 0, recipe: null, flipped: false, readyTime: 0, clearProgress: 0 });
+  // Lesson juice crates share the top row, and that lesson's juice bar stands where the cutting board is.
+  // A service night that needs both keeps the board at (4, 4) and moves juice gear onto spots this menu leaves empty.
+  const SERVICE_JUICE_LAYOUT = {
+    lemon: { x: 7, y: 1 }, syrup: { x: 9, y: 1 }, ice: { x: 11, y: 1 }, plum: { x: 13, y: 1 }, 'juice-bar': { x: 4, y: 6 }
+  };
   function getStations(level) {
     if (level.mode === 'training') return STATIONS.filter(s => level.stations.includes(s.id)).map(s => ({ ...s, name: s.id === 'serve' ? '驗收檯' : s.name, item: null, progress: 0, ...(s.type === 'juice' ? { ingredients: [] } : {}) }));
-    const ingredients = new Set(level.menu.flatMap(key => RECIPES[key].ingredients));
-    return STATIONS.filter(s => !s.training && (!s.advanced || level.woks > 1) && (s.type !== 'supply' || ingredients.has(s.supply) || ingredients.has(ITEMS[s.supply].processed))).map(s => ({ ...s, item: null, progress: 0 }));
+    const ingredients = new Set(level.menu.flatMap(key => menuOffer(key)?.ingredients || []));
+    const needsJuice = level.menu.some(key => DRINKS[key]);
+    return STATIONS.filter(s => {
+      if (s.advanced && !(level.woks > 1)) return false;
+      if (s.type === 'juice') return needsJuice;
+      if (s.type === 'supply') return ingredients.has(s.supply) || ingredients.has(ITEMS[s.supply].processed);
+      return !s.training;
+    }).map(s => ({ ...s, ...(needsJuice && SERVICE_JUICE_LAYOUT[s.id] || {}), item: null, progress: 0, ...(s.type === 'juice' ? { ingredients: [] } : {}) }));
   }
   function starCount(revenue, level) { return level.stars.filter(threshold => revenue >= threshold).length; }
   class Kitchen {
@@ -161,7 +185,9 @@
         this.orderBag = [...this.level.menu];
         for (let i = this.orderBag.length - 1; i > 0; i--) { const j = Math.min(i, Math.max(0, Math.floor(this.random() * (i + 1)))); [this.orderBag[i], this.orderBag[j]] = [this.orderBag[j], this.orderBag[i]]; }
       }
-      const key = recipe || this.orderBag.pop(), patience = Math.round(RECIPES[key].patience * this.mods.patience);
+      const key = recipe || this.orderBag.pop(), offer = menuOffer(key);
+      if (!offer) return;
+      const patience = Math.round(offer.patience * this.mods.patience);
       this.orders.push({ id: this.nextId++, table: this.spawnIndex++ % 3 + 1, recipe: key, remaining: patience, total: patience });
     }
     interact(id) {
@@ -220,7 +246,7 @@
     missingIngredients(id = 'wok') {
       const w = this.woks[id]; if (!w) return '';
       const n = portionsFor(w.ingredients);
-      return this.level.menu.map(key => RECIPES[key]).filter(r => w.ingredients.every(i => r.ingredients.includes(i))).map(r => {
+      return this.level.menu.map(key => RECIPES[key]).filter(r => r && w.ingredients.every(i => r.ingredients.includes(i))).map(r => {
         const missing = r.ingredients.map(id => ({ id, count: n - w.ingredients.filter(i => i === id).length })).filter(i => i.count > 0);
         return `${r.name} ×${n}（${missing.length ? '缺' + missing.map(i => ITEMS[i.id].name + ' ×' + i.count).join('、') : '材料齊了'}）`;
       }).join(' 或 ');
@@ -271,11 +297,13 @@
         return;
       }
       const item = this.held && ITEMS[this.held.id];
-      if (!item || item.kind !== 'dish') return this.message('把完成的料理裝盤後送過來。');
-      const match = this.orders.filter(o => o.recipe === item.recipe).sort((a, b) => a.remaining - b.remaining)[0];
-      if (!match) return this.message('目前沒有客人點這道菜，先放備料檯。');
-      const r = RECIPES[item.recipe]; const income = r.price + Math.round(r.price * .2 * match.remaining / match.total) + (this.held.quality ? Math.round(r.price * this.mods.qualityBonus) : 0);
-      this.revenue += income; this.served++; this.orders = this.orders.filter(o => o !== match); this.held = null; this.returns.push(5);
+      const offer = item?.kind === 'dish' ? menuOffer(item.recipe) : item?.kind === 'juice' ? menuOffer(this.held.id) : null;
+      if (!offer) return this.message('把完成的料理裝盤後送過來。');
+      const match = this.orders.filter(o => o.recipe === offer.key).sort((a, b) => a.remaining - b.remaining)[0];
+      if (!match) return this.message(offer.kind === 'drink' ? '目前沒有客人點這杯飲料，先放備料檯。' : '目前沒有客人點這道菜，先放備料檯。');
+      const income = offer.price + Math.round(offer.price * .2 * match.remaining / match.total) + (offer.kind === 'dish' && this.held.quality ? Math.round(offer.price * this.mods.qualityBonus) : 0);
+      this.revenue += income; this.served++; this.orders = this.orders.filter(o => o !== match); this.held = null;
+      if (offer.kind === 'dish') this.returns.push(5);
       this.message('第 ' + match.table + ' 桌，上菜！收入 +$' + income, 'serve');
     }
     tick(dt, workingStation = null) {
@@ -330,8 +358,8 @@
     }
     finish() { if (this.phase === 'ended') return; this.expired += this.orders.length; this.orders = []; this.phase = 'ended'; this.time = 0; }
   }
-  const VERSION = '0.11.0';
-  const api = { VERSION, Kitchen, ITEMS, RECIPES, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor, portionsFor, cookDuration, chopDuration, MIX_TIME, juiceRecipe, CHEF_STATS, getChefModifiers, flipWindowText };
+  const VERSION = '0.12.0';
+  const api = { VERSION, Kitchen, ITEMS, RECIPES, DRINKS, JUICE_RECIPES, menuOffer, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor, portionsFor, cookDuration, chopDuration, MIX_TIME, juiceRecipe, CHEF_STATS, getChefModifiers, flipWindowText };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HotStirFry = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

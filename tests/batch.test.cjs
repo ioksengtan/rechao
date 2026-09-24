@@ -1,12 +1,16 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { Kitchen, RECIPES, cookDuration, recipeFor } = require('../game-core.js');
+const { Kitchen, RECIPES, LEVELS, cookDuration, recipeFor } = require('../game-core.js');
 function put(g, id, wok = 'wok') { g.held = { id }; g.interact(wok); }
 for (const key of Object.keys(RECIPES)) for (const n of [1, 2, 3]) {
   test(`${key}: ${n} portions cook, share quality and serve separately`, () => {
-    const g = new Kitchen(() => .5, 'friday');
+    const levelId = LEVELS.find(l => l.id === 'friday' && l.menu.includes(key)) ? 'friday' : LEVELS.find(l => !l.mode && l.menu.includes(key)).id;
+    const g = new Kitchen(() => .5, levelId);
     g.startService(); g.orders = []; g.spawnTime = 999;
-    for (let i = 0; i < n; i++) g.addOrder(key);
+    for (let i = 0; i < n; i++) {
+      if (g.orders.length < g.level.maxOrders) g.addOrder(key);
+      else g.orders.push({ id: g.nextId++, table: 1, recipe: key, remaining: RECIPES[key].patience, total: RECIPES[key].patience });
+    }
     for (const id of [...RECIPES[key].ingredients].reverse()) for (let i = 0; i < n; i++) put(g, id);
     assert.equal(recipeFor(g.wok.ingredients), key);
     g.action('wok');

@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
   const KEY = 'hot-stir-fry-progress-v2';
-  const IDS = ['opening', 'rush', 'friday', 'lunch', 'prep-school', 'spice-school', 'sauce-school', 'juice-school'];
+  const IDS = ['opening', 'rush', 'friday', 'lunch', 'afternoon', 'prep-school', 'spice-school', 'sauce-school', 'juice-school'];
   const validNumber = value => Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
   class Progress {
     constructor(storage) {

@@ -1,7 +1,7 @@
 /* Single-player input, UI and presentation hooks. No runtime dependencies. */
 (() => {
   'use strict';
-  const { Kitchen, ITEMS, RECIPES, LEVELS, starCount, portionsFor, cookDuration, flipWindowText } = window.HotStirFry;
+  const { Kitchen, ITEMS, LEVELS, starCount, portionsFor, cookDuration, flipWindowText, menuOffer, MIX_TIME } = window.HotStirFry;
   const { createPlayer, movePlayer } = window.HotStirFryMovement;
   const $ = id => document.getElementById(id);
   const canvas = $('game'), ctx = canvas.getContext('2d');
@@ -179,7 +179,10 @@
     $('level-list').innerHTML = available.map((level, i) => {
       const chefRow = selectedChef && level.mode !== 'training' ? careerSave.records[level.id] : null;
       const record = selectedChef && level.mode !== 'training' ? chefRow || { revenue: 0, stars: 0, runs: 0 } : progress.records[level.id];
-      return `<button class="level-card ${selectedLevel === level.id ? 'selected' : ''}" data-level="${level.id}" aria-pressed="${selectedLevel === level.id}"><span class="night-number">${level.mode === 'training' ? 'LESSON' : 'NIGHT'} 0${i+1}</span><strong>${level.name}</strong><span>${level.subtitle}</span><small>${level.mode === 'training' ? level.card : level.menu.length + ' 道菜 · ' + level.woks + ' 口炒鍋'}</small><span class="level-stars" aria-label="最佳 ${record.stars} 星">${'★'.repeat(record.stars)}${'☆'.repeat(3-record.stars)}</span><small>${selectedChef && level.mode !== 'training' ? (chefRow?.runs ? `主廚卡紀錄 $${chefRow.revenue}（${esc(chefRow.chef?.nickname || 'Alex')}）` : '主廚卡紀錄 · 尚未挑戰') : record.runs || record.revenue ? (level.mode === 'training' ? '已完成 ' + record.runs + ' 次' : '最佳營收 $'+record.revenue) : '尚未完成 · 歡迎挑戰'}</small></button>`;
+      const offers = level.mode === 'training' ? [] : level.menu.map(menuOffer);
+      const drinks = offers.filter(o => o.kind === 'drink').length;
+      const menuLine = level.mode === 'training' ? level.card : drinks ? `${offers.length - drinks} 道菜 · ${drinks} 杯飲料 · ${level.woks} 口炒鍋` : `${offers.length} 道菜 · ${level.woks} 口炒鍋`;
+      return `<button class="level-card ${selectedLevel === level.id ? 'selected' : ''}" data-level="${level.id}" aria-pressed="${selectedLevel === level.id}"><span class="night-number">${level.mode === 'training' ? 'LESSON' : 'NIGHT'} 0${i+1}</span><strong>${level.name}</strong><span>${level.subtitle}</span><small>${menuLine}</small><span class="level-stars" aria-label="最佳 ${record.stars} 星">${'★'.repeat(record.stars)}${'☆'.repeat(3-record.stars)}</span><small>${selectedChef && level.mode !== 'training' ? (chefRow?.runs ? `主廚卡紀錄 $${chefRow.revenue}（${esc(chefRow.chef?.nickname || 'Alex')}）` : '主廚卡紀錄 · 尚未挑戰') : record.runs || record.revenue ? (level.mode === 'training' ? '已完成 ' + record.runs + ' 次' : '最佳營收 $'+record.revenue) : '尚未完成 · 歡迎挑戰'}</small></button>`;
     }).join('');
     if (!available.length) {
       $('level-description').textContent = '籌備中'; $('level-goals').textContent = ''; $('level-timing').textContent = ''; $('start').textContent = '尚未開放'; return;
@@ -188,7 +191,9 @@
     $('level-description').textContent = level.description;
     $('level-goals').textContent = level.stars.map((goal, i) => `${i+1} 星 $${goal}`).join('　／　');
     const inputLabel = document.body.classList.contains('touch-active') ? '鍵盤或觸控' : '單人鍵盤操作';
-    $('level-timing').textContent = `${level.prepTime} 秒備料 · ${level.serviceTime/60} 分鐘營業 · 最多 ${level.closingTime} 秒收尾 · ${inputLabel}`;
+    const minutes = level.serviceTime / 60;
+    const serviceLabel = Number.isInteger(minutes * 2) ? `${minutes} 分鐘` : `${Math.floor(minutes)} 分 ${level.serviceTime % 60} 秒`;
+    $('level-timing').textContent = `${level.prepTime} 秒備料 · ${serviceLabel}營業 · 最多 ${level.closingTime} 秒收尾 · ${inputLabel}`;
     $('start').textContent = `開始「${level.name}」 →`;
     if (level.mode === 'training') { $('level-goals').textContent = '目標：' + goalText(level); $('level-timing').textContent = level.timing; }
 
@@ -197,10 +202,14 @@
     $('revenue-metric').classList.toggle('hidden', game.level.mode === 'training');
     $('satisfaction-metric').classList.toggle('hidden', game.level.mode === 'training');
     $('served-title').textContent = game.level.mode === 'training' ? '已驗收' : '已上菜';
-    $('menu-count').textContent = `${game.level.menu.length} 道拿手菜`;
-    $('recipe-list').innerHTML = game.level.menu.map(key => {
-      const r = RECIPES[key];
-      return `<div class="recipe"><img class="dish-art" src="assets/${key}.svg" alt="${r.name}" width="64" height="52"><div><strong>${r.name} <em>$${r.price}</em></strong><p>${r.ingredients.map(i => ITEMS[i].name).join(' ＋ ')}</p><small>每份各需上述材料 · 最多 3 份<br>炒 1／2／3 份：${[1,1.4,1.8].map(n => +(r.cookTime*n).toFixed(1)).join("／")} 秒</small></div></div>`;
+    const offers = game.level.menu.map(menuOffer);
+    const drinkCount = offers.filter(o => o?.kind === 'drink').length;
+    $('menu-count').textContent = drinkCount ? `${offers.length - drinkCount} 道菜 · ${drinkCount} 杯飲料` : `${offers.length} 道拿手菜`;
+    $('recipe-list').innerHTML = offers.map(r => {
+      const detail = r.kind === 'drink'
+        ? `果汁調配台一次一杯，不用餐盤<br>空手按住 F 約 ${MIX_TIME} 秒`
+        : `每份各需上述材料 · 最多 3 份<br>炒 1／2／3 份：${[1, 1.4, 1.8].map(n => +(r.cookTime * n).toFixed(1)).join('／')} 秒`;
+      return `<div class="recipe"><img class="dish-art" src="assets/${r.key}.svg" alt="${r.name}" width="64" height="52"><div><strong>${r.name} <em>$${r.price}</em></strong><p>${r.ingredients.map(i => ITEMS[i].name).join(' ＋ ')}</p><small>${detail}</small></div></div>`;
     }).join('');
     $('current-level').textContent = '單人料理遊戲 · ' + game.level.name + (game.chef && (game.level.mode !== 'training' || game.chef.exam) ? ' · 主廚 ' + game.chef.nickname : '');
     $('kitchen-title').textContent = game.level.name + ' · 今晚，你是總舖師';
@@ -431,11 +440,12 @@
     $('phase-note').textContent = { prep:'先切點青菜，讓第一道菜快點上桌。', service:'大火快炒，慢慢也能熟能生巧。', closing:'不接新單了，把最後幾道菜送上桌。', ended:'謝謝招待，明天見！' }[game.phase];
     $('open-early').classList.toggle('hidden', game.phase !== 'prep');
     $('order-count').textContent = `${game.orders.length} / ${game.level.maxOrders}`;
-    $('orders').innerHTML = game.orders.map(o => { const r = RECIPES[o.recipe]; return `<article class="order ${o.remaining < 20 ? 'urgent' : ''}"><div class="order-head"><span>第 ${o.table} 桌 · #${String(o.id).padStart(2,'0')}</span><b>$${r.price}</b></div><h3>${r.name}</h3><p>${r.ingredients.map(i => ITEMS[i].name).join(' ＋ ')}</p><div class="order-bottom"><span>${o.remaining < 20 ? '客人等得有點急了' : '客人耐心'}</span><span>${Math.ceil(o.remaining)} 秒</span></div><div class="progress-track"><i style="width:${Math.max(0,o.remaining/o.total*100)}%"></i></div></article>`; }).join('') || `<div class="empty-orders">${game.phase === 'prep' ? '客人還沒到<br>先準備一些切好的食材吧。' : '目前沒有待做的菜<br>趁現在整理一下廚房。'}</div>`;
+    $('orders').innerHTML = game.orders.map(o => { const r = menuOffer(o.recipe); return `<article class="order ${o.remaining < 20 ? 'urgent' : ''}"><div class="order-head"><span>第 ${o.table} 桌 · #${String(o.id).padStart(2,'0')}</span><b>$${r.price}</b></div><h3>${r.name}</h3><p>${r.ingredients.map(i => ITEMS[i].name).join(' ＋ ')}</p><div class="order-bottom"><span>${o.remaining < 20 ? '客人等得有點急了' : '客人耐心'}</span><span>${Math.ceil(o.remaining)} 秒</span></div><div class="progress-track"><i style="width:${Math.max(0,o.remaining/o.total*100)}%"></i></div></article>`; }).join('') || `<div class="empty-orders">${game.phase === 'prep' ? '客人還沒到<br>先準備一些切好的食材吧。' : '目前沒有待做的訂單<br>趁現在整理一下廚房。'}</div>`;
     const woks = Object.values(game.woks);
-    $('tip').textContent = woks.some(w => w.state === 'ready') ? '餐盤架在炒爐下方。拿空盤，回到完成的鍋按 E 盛裝，再送到右側出餐口。' : woks.some(w => w.state === 'cooking') ? `每口鍋獨立計時。看下方鍋況，在 ${flipWindowText(game.mods)} 進度回來按 F 翻炒，品質獎勵 +${Math.round(game.mods.qualityBonus * 100)}%。` : '青菜、蔥、牛肉和雞肉要先切。雞蛋、白飯、九層塔與三杯醬可直接下鍋。';
+    const drinksOnMenu = game.level.menu.some(key => menuOffer(key)?.kind === 'drink');
+    $('tip').textContent = woks.some(w => w.state === 'ready') ? '餐盤架在炒爐下方。拿空盤，回到完成的鍋按 E 盛裝，再送到右側出餐口。' : woks.some(w => w.state === 'cooking') ? `每口鍋獨立計時。看下方鍋況，在 ${flipWindowText(game.mods)} 進度回來按 F 翻炒，品質獎勵 +${Math.round(game.mods.qualityBonus * 100)}%。` : drinksOnMenu ? '青菜和蔥要先切。雞蛋與醬油可直接下鍋。果汁在調配台一次調一杯，不用餐盤，直接送到出餐口。' : '青菜、蔥、牛肉和雞肉要先切。雞蛋、白飯、九層塔與三杯醬可直接下鍋。';
     $('wok-status').innerHTML = Object.entries(game.woks).map(([id, w], i) => {
-      const dish = w.recipe ? RECIPES[w.recipe].name : '';
+      const dish = w.recipe ? menuOffer(w.recipe).name : '';
       let state = '空鍋 · 等待食材';
       if (w.state === 'loading') state = HotStirFry.recipeFor(w.ingredients, game.level.menu) ? `${game.missingIngredients(id)} · F 開火` : game.missingIngredients(id);
       if (w.state === 'cooking') { const p = w.elapsed/cookDuration(w); state = `${dish} ×${w.portions} · ${Math.ceil(cookDuration(w)-w.elapsed)} 秒${w.flipped ? ' · 已翻炒' : p >= game.mods.flipStart && p <= game.mods.flipEnd ? ' · F 翻炒！' : ''}`; }
