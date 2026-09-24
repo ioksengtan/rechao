@@ -1,5 +1,9 @@
 # rechao — 熱炒開店啦！
 
+## v0.14 手繪店面
+
+廚房、餐點、主廚、客人與選單改成墨線加淡水彩：鼠尾草綠、奶油紙色、淺木地板。整體比以前暗，比較像正在營業的巷口熱炒，而不是明亮的展示櫃。灶火和選中的工作站仍留一點暖色，方便對準。工作站位置、碰撞與玩法沒有改。
+
 ## 試玩工具：複製本局數據
 
 結算畫面有「複製本局數據」按鈕，會把版本、模式、關卡、星數、營收、上菜與燒焦次數、實際遊玩時間等整理成一段文字，方便試玩者貼給開發者；使用主廚、小考或結業考時另附能力與週次。不含個人資料。瀏覽器不允許自動複製時，會顯示文字框讓玩家手動複製。
@@ -96,7 +100,7 @@
 
 A 2D single-player cooking game inspired by Taiwan’s lively stir-fry restaurants. Prep ingredients, fire up the wok, and serve hungry customers through the dinner rush.
 
-Current version: 0.13.0
+Current version: 0.14.0
 
 社群推廣用的繁體中文貼文、更新公告與短影片字幕，見 [社群文案](docs/social-copy.zh-TW.md)。
 
