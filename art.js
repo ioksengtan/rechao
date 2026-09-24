@@ -9,7 +9,7 @@
     floor: '#c9c6a5', floorAlt: '#d1cdb1', wood: '#c18e55'
   };
   function createRenderer(ctx, data) {
-    const { ITEMS, menuOffer, cookDuration, chopDuration, MIX_TIME } = data;
+    const { ITEMS, menuOffer, cookDuration, chopDuration, MIX_TIME, juiceMeasureLines, sauceMeasureLine } = data;
     const state = { clock: 0, effects: [], tosses: {}, gesture: null, tables: {}, shake: null, seen: null };
     const REACTIONS = ['好吃！', '讚啦！', '好香喔！', '再來一盤！', '老闆，厲害！', '鍋氣十足！'];
     const HURRY = ['老闆，我的菜呢～', '還要等很久嗎？', '肚子好餓喔……'];
@@ -103,8 +103,14 @@
         for (let i = 0; i < 6; i++) leaf(Math.sin(i * 2) * 12, Math.cos(i * 2) * 8, i * 1.3, 8, i % 2 ? '#4f8655' : '#78a064');
       } else if (info.kind === 'sauce' || info.kind === 'soy') {
         const soy = info.kind === 'soy';
-        box(-11, -14, 22, 33, soy ? '#3e2a22' : '#80503a', 5, P.ink, 1.5); box(-7, -21, 14, 9, soy ? '#1f1612' : '#b94535', 2, P.ink, 1.5);
-        box(-10, -3, 20, 16, soy ? '#e6d2a2' : '#edcd8f', 1); label(soy ? '油' : '醬', 0, 5, 12, soy ? '#3e2a22' : '#8d4c32'); line([[-7, -9], [-7, -5]], soy ? '#c4a574' : '#dba77c', 2);
+        if (info.portion) {
+          oval(0, 6, 16, 9, soy ? '#3e2a22' : '#80503a', P.ink, 1.5);
+          oval(0, 3, 14, 7, soy ? '#e6d2a2' : '#edcd8f', P.ink, 1);
+          label(soy ? '1' : '2', 0, 3, 11, soy ? '#3e2a22' : '#6d3a24');
+        } else {
+          box(-11, -14, 22, 33, soy ? '#3e2a22' : '#80503a', 5, P.ink, 1.5); box(-7, -21, 14, 9, soy ? '#1f1612' : '#b94535', 2, P.ink, 1.5);
+          box(-10, -3, 20, 16, soy ? '#e6d2a2' : '#edcd8f', 1); label(soy ? '油' : '醬', 0, 5, 12, soy ? '#3e2a22' : '#8d4c32'); line([[-7, -9], [-7, -5]], soy ? '#c4a574' : '#dba77c', 2);
+        }
       } else if (info.kind === 'lemon') {
         oval(0, 0, 16, 16, '#e6b423', P.ink, 1.5); oval(0, 0, 12, 12, '#f8e7a0');
         for (let i = 0; i < 6; i++) line([[0, 0], [Math.cos(i * Math.PI / 3) * 10, Math.sin(i * Math.PI / 3) * 10]], '#e6c14a', 1);
@@ -131,6 +137,11 @@
       box(x - width / 2, y - 11, width, 22, '#3b49352b', 5);
       box(x - width / 2, y - 13, width, 22, fill, 5, '#6b785b66', 1);
       label(str, x, y - 2, 14, color);
+    }
+    function measureBadge(text, x, y) {
+      const width = Math.min(540, Math.max(96, text.length * 15 + 20));
+      const cx = Math.max(width / 2 + 8, Math.min(x, 952 - width / 2));
+      badge(text, cx, y, width, '#e7f6ef', '#1e4d3c');
     }
     function bar(x, y, p, color = '#90b276') {
       box(x - 34, y, 68, 8, '#354b41', 4); box(x - 32, y + 2, 64 * Math.max(0, Math.min(1, p)), 4, color, 2);
@@ -229,7 +240,16 @@
           if (s.progress > 0 && s.item && !ITEMS[s.item.id].chopped) bar(x, y - 45, s.progress / chopDuration(s.item, game.mods));
         }
         if (s.item && (s.item.count || 1) > 1) badge(`×${s.item.count}`, x + 22, y - 23, 32, '#f1e2a6', '#795332');
-        if (s.type === 'counter') { if (s.item) item(s.item.id, x, y - 6, .95); else { box(x - 19, y - 18, 37, 24, null, '#b9cabb', 1); line([[x - 12, y - 10], [x + 5, y - 10]], '#d7dfca', 1); } }
+        if (s.type === 'counter') {
+          if (s.spoons > 0) {
+            const fill = s.sauceId === 'soy' ? '#e6d2a2' : '#edcd8f';
+            oval(x, y + 2, 18, 10, s.sauceId === 'soy' ? '#3e2a22' : '#80503a', P.ink, 1.5);
+            oval(x, y, 16, 8, fill);
+            const lineText = sauceMeasureLine ? sauceMeasureLine(s) : `${s.spoons} 大匙`;
+            measureBadge(lineText, x, y - 58);
+          } else if (s.item) item(s.item.id, x, y - 6, .95);
+          else { box(x - 19, y - 18, 37, 24, null, '#b9cabb', 1); line([[x - 12, y - 10], [x + 5, y - 10]], '#d7dfca', 1); }
+        }
         if (s.type === 'plates') {
           if (game.plates) for (let i = Math.min(4, game.plates) - 1; i >= 0; i--) plate(x, y - 7 + i * 4, .88);
           else oval(x, y - 2, 23, 14, null, '#a8bbab', 1);
@@ -242,8 +262,10 @@
         if (s.type === 'juice') {
           box(x - 24, y - 18, 48, 30, '#d7efe8', 6, P.ink, 1.5); box(x - 7, y - 30, 14, 20, '#f7fbf8', 3, '#6d8a80', 1.5);
           if (s.item) item(s.item.id, x, y - 4, .7);
-          else s.ingredients.forEach((id, i) => item(id, x - 16 + i * 14, y - 2, .35));
+          else if (s.ingredients?.length) s.ingredients.forEach((id, i) => item(id, x - 16 + i * 14, y - 2, .35));
+          else if (s.mix) ['lemon', 'plum', 'syrup', 'ice'].filter(id => s.mix[id] > 0).forEach((id, i, list) => item(id, x + (i - (list.length - 1) / 2) * 14, y - 2, .34));
           if (s.progress > 0 && !s.item) bar(x, y - 48, s.progress / MIX_TIME, '#7ec8c0');
+          if (s.mix && juiceMeasureLines && ['lemon', 'plum', 'syrup', 'ice'].some(id => s.mix[id] > 0)) juiceMeasureLines(s.mix).forEach((line, i, list) => measureBadge(line, x, y - 72 - (list.length - 1 - i) * 26));
         }
       }
       const width = Math.max(72, s.name.length * 15 + 14);

@@ -24,16 +24,16 @@ test('page ships touch controls beside the keyboard and career mode', () => {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const css = fs.readFileSync(path.join(root, 'style.css'), 'utf8');
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
-  assert.equal(require('../package.json').version, '0.12.0');
+  assert.equal(require('../package.json').version, '0.13.0');
   assert.match(html, /viewport-fit=cover/);
   assert.match(html, /id="touch-controls"/);
   assert.match(html, /id="career-open"/);
   assert.match(html, /id="touch-f"/);
-  assert.match(html, /v=0\.12\.0/);
+  assert.match(html, /v=0\.13\.0/);
   assert.match(html, /鍵盤與觸控/);
   assert.match(css, /career-modal/);
   assert.match(css, /touch-action:\s*none/);
-  assert.match(readme, /0\.12\.0/);
+  assert.match(readme, /0\.13\.0/);
   assert.match(readme, /成長模式/);
   assert.match(readme, /觸控/);
   assert.doesNotMatch(readme, /需要實體鍵盤/);
@@ -118,12 +118,18 @@ test('direction pad moves, E taps once, and holding F chops, mixes, cooks and cl
   ui.nodes['course-tabs'].onclick({ target: { closest: () => ({ dataset: { course: 'juice' } }) } });
   ui.nodes.start.onclick();
   ui.frame();
-  for (const id of ['lemon', 'syrup', 'ice']) {
-    face(ui, id); tap(ui, 'touch-e');
-    face(ui, 'juice-bar'); tap(ui, 'touch-e');
-  }
+  const pour = (id, times) => {
+    if (ui.game.held?.source && ui.game.held.id !== id) { face(ui, ui.game.held.id); tap(ui, 'touch-e'); }
+    if (!ui.game.held) { face(ui, id); tap(ui, 'touch-e'); }
+    face(ui, 'juice-bar');
+    for (let i = 0; i < times; i++) tap(ui, 'touch-e');
+  };
+  pour('lemon', 2); pour('syrup', 6); pour('ice', 3);
   const juicer = ui.game.stations.find(s => s.id === 'juice-bar');
-  assert.equal(juicer.ingredients.length, 3);
+  assert.equal(juicer.mix.lemon, 2);
+  assert.equal(juicer.mix.syrup, 30);
+  assert.equal(juicer.mix.ice, 3);
+  face(ui, 'counter'); tap(ui, 'touch-e');
   face(ui, 'juice-bar');
   ui.pointer('touch-f', 'pointerdown');
   ui.frames(140);

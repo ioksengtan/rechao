@@ -30,6 +30,9 @@ canvas:focus-visible { outline: 2px solid #eebd58; outline-offset: -3px; }
 .wok-chip.cooking { background: #f2e5c8; color: #8a703c; }
 .wok-chip.ready { background: #eec69f; color: #764525; }
 .wok-chip.burned { background: #d6c6b8; color: #6b4e3f; }
+.wok-chip.measure { background: #e5f3ea; color: #245744; }
+.wok-chip.measure.over { background: #f6ddd4; color: #8a3e2c; }
+.wok-chip.measure span { white-space: normal; }
 .recipe > div { flex: 1; }
 .recipe p { line-height: 1.8; }
 .recipe small { display: block; margin-top: 5px; font-size: 9px; color: #959889; }

@@ -1,7 +1,7 @@
 /* Single-player input, UI and presentation hooks. No runtime dependencies. */
 (() => {
   'use strict';
-  const { Kitchen, ITEMS, LEVELS, starCount, portionsFor, cookDuration, flipWindowText, menuOffer, MIX_TIME } = window.HotStirFry;
+  const { Kitchen, ITEMS, LEVELS, starCount, portionsFor, cookDuration, flipWindowText, menuOffer, MIX_TIME, SAUCE_SPOONS, TRAINING_JUICE, juiceMeasureLines, sauceMeasureLine, measuredJuiceMatch, juiceOvershot, juiceTargetText } = window.HotStirFry;
   const { createPlayer, movePlayer } = window.HotStirFryMovement;
   const $ = id => document.getElementById(id);
   const canvas = $('game'), ctx = canvas.getContext('2d');
@@ -21,7 +21,10 @@
   let selectedLevel = 'prep-school', selectedCourse = 'prep';
   const courses = [['prep','備料'],['spices','辛香料'],['sauces','調醬'],['juice','果汁'],['service','熱炒營業']];
   const courseFor = level => level.course;
-  const goalText = level => level.goals.map(g => `${ITEMS[g.id].name} ${g.count} 份`).join('、');
+  const goalText = level => level.goals.map(g => {
+    const item = ITEMS[g.id];
+    return item.portion ? `${item.name} ${item.spoons} 大匙 × ${g.count}` : `${item.name} ${g.count} 份`;
+  }).join('、');
   const nextLevel = () => game.level.mode === 'training' ? LEVELS[0] : LEVELS.filter(l => !l.mode)[LEVELS.filter(l => !l.mode).indexOf(game.level)+1];
   game.reset(selectedLevel);
   const originLines = [
@@ -418,12 +421,35 @@
   function prompt() {
     if (!target || !running || ended) return '';
     const s = target;
-    if (s.type === 'supply') return `E 取${ITEMS[s.supply].name}`;
+    if (s.type === 'supply') {
+      if (game.level.measure === 'sauce' && SAUCE_SPOONS[s.supply]) return `E 拿${ITEMS[s.supply].name}瓶子`;
+      if (game.level.measure === 'juice' && TRAINING_JUICE && ['lemon', 'plum', 'syrup', 'ice'].includes(s.supply)) return `E 拿${ITEMS[s.supply].name}，到果汁台倒`;
+      return `E 取${ITEMS[s.supply].name}`;
+    }
     if (s.type === 'board') return s.item ? (ITEMS[s.item.id].chopped ? `E 拿起 ${s.item.count || 1} 份切好的食材` : `共 ${s.item.count || 1}/3 份 · E 加同種食材／空手拿起 · 按住 F 切料`) : 'E 放上需要切的蔬菜／肉類';
+    if (s.type === 'counter' && game.level.measure === 'sauce') {
+      if (!s.spoons) return 'E／F 加 1 大匙 · 三杯醬 2、醬油 1';
+      const target = SAUCE_SPOONS[s.sauceId];
+      if (s.spoons === target) return `${ITEMS[s.sauceId].name} ${s.spoons}／${target} 大匙 · E 拿起這一份`;
+      if (s.spoons > target) return `${ITEMS[s.sauceId].name} ${s.spoons}／${target} 大匙 · 太多了，到廚餘桶倒掉`;
+      return `${ITEMS[s.sauceId].name} ${s.spoons}／${target} 大匙 · E／F 再加 1 大匙`;
+    }
     if (s.type === 'counter') return s.item ? (game.held ? 'E 交換手上與檯上物品' : `E 拿起${ITEMS[s.item.id].name} ×${s.item.count || 1}`) : 'E 暫放物品';
     if (s.type === 'plates') return `E ${game.held?.id === 'plate' ? '放回' : '拿取'}餐盤 · 剩 ${game.plates} 個`;
     if (s.type === 'serve') return game.level.mode === 'training' ? 'E 交給師傅驗收 · 不需要餐盤' : 'E 上菜 · 自動送至正確桌次';
-    if (s.type === 'trash') return 'E 丟棄食材／清空餐盤';
+    if (s.type === 'trash') {
+      if (game.level.measure === 'juice') return 'E 丟棄手上的東西 · 空手可清空果汁台';
+      if (game.level.measure === 'sauce') return 'E 丟棄手上的東西 · 空手可倒掉量杯';
+      return 'E 丟棄食材／清空餐盤';
+    }
+    if (s.type === 'juice' && game.level.measure === 'juice') {
+      if (s.item) return `E 拿起${ITEMS[s.item.id].name}`;
+      const ready = measuredJuiceMatch(s.mix);
+      if (ready) return `${ITEMS[ready].name}份量到了 · 空手按住 F 約 2 秒`;
+      if (juiceOvershot(s.mix)) return '超過了 · 空手 E 倒回，或到廚餘桶清空';
+      if (s.pours.length) return 'E 再倒一步（糖漿 +5 cc） · 空手 E 倒回';
+      return 'E 倒入：檸檬 2 片、糖漿 30 cc、冰 3 塊，或脆梅 2 顆、糖漿 25 cc、冰 3 塊';
+    }
     if (s.type === 'juice') return s.item ? `E 拿起${ITEMS[s.item.id].name}` : s.ingredients.length === 3 ? '空手按住 F 調配約 2 秒 · E 拿回材料' : s.ingredients.length ? `已放 ${s.ingredients.length} 項 · E 加料或拿回上一項` : 'E 放入檸檬片或脆梅、糖漿、冰塊';
     const w = game.woks[s.id];
     if (w.state === 'empty') return 'E 加入食材';
@@ -432,11 +458,19 @@
     if (w.state === 'burned') return '空手按住 F 清理燒焦炒鍋';
     return w.flipped ? '翻炒完成，等待起鍋' : `F 翻炒 · 在進度 ${flipWindowText(game.mods)} 時操作`;
   }
+  function heldText() {
+    if (!game.held) return '雙手空空';
+    const item = ITEMS[game.held.id];
+    if (game.held.bottle) return '手上拿著：' + item.name + '（瓶子）';
+    if (item.portion) return `手上拿著：${item.name} ${item.spoons} 大匙`;
+    if (game.held.source) return '手上拿著：' + item.name;
+    return '手上拿著：' + item.name + ` ×${game.held.count || 1}`;
+  }
   function updateHUD() {
     const labels = { prep:'備料時間', service:'營業中', closing:'最後出菜', ended:'今晚打烊' };
     $('phase-label').textContent = labels[game.phase]; const time = Math.ceil(Math.max(0, game.time)); $('clock').textContent = `${String(Math.floor(time/60)).padStart(2,'0')}:${String(time%60).padStart(2,'0')}`;
     $('revenue').textContent = game.revenue.toLocaleString(); $('served').innerHTML = `${game.served} <span class="unit">道</span>`; $('satisfaction').innerHTML = `${game.satisfaction}<span class="unit">%</span>`;
-    $('held-label').textContent = game.held ? '手上拿著：' + ITEMS[game.held.id].name + ` ×${game.held.count || 1}` : '雙手空空';
+    $('held-label').textContent = heldText();
     $('phase-note').textContent = { prep:'先切點青菜，讓第一道菜快點上桌。', service:'大火快炒，慢慢也能熟能生巧。', closing:'不接新單了，把最後幾道菜送上桌。', ended:'謝謝招待，明天見！' }[game.phase];
     $('open-early').classList.toggle('hidden', game.phase !== 'prep');
     $('order-count').textContent = `${game.orders.length} / ${game.level.maxOrders}`;
@@ -453,13 +487,26 @@
       if (w.state === 'burned') state = '燒焦 · 空手按住 F 清鍋';
       return `<div class="wok-chip ${w.state}"><b>${i+1} 號鍋</b><span>${state}</span></div>`;
     }).join('');
+    if (game.level.measure === 'juice') {
+      const bar = game.stations.find(st => st.type === 'juice');
+      const over = juiceOvershot(bar.mix);
+      $('wok-status').innerHTML = juiceMeasureLines(bar.mix).map(line => `<div class="wok-chip measure${over ? ' over' : ''}"><b>果汁台</b><span>${line}</span></div>`).join('');
+    } else if (game.level.measure === 'sauce') {
+      const cup = game.stations.find(st => st.id === 'counter');
+      const over = cup.spoons > (SAUCE_SPOONS[cup.sauceId] || Infinity);
+      $('wok-status').innerHTML = `<div class="wok-chip measure${over ? ' over' : ''}"><b>量杯</b><span>${sauceMeasureLine(cup)}</span></div>`;
+    }
     if (game.level.mode === 'training') {
       const total = game.level.goals.reduce((sum, goal) => sum + goal.count, 0);
       $('served').innerHTML = `${game.served} <span class="unit">份</span>`;
       $('phase-label').textContent = game.level.phaseLabel; $('clock').textContent = '不限時';
       $('phase-note').textContent = game.level.phaseNote;
       $('order-count').textContent = `${game.served} / ${total} 份`;
-      $('orders').innerHTML = game.level.goals.map(g => `<article class="order"><h3>${ITEMS[g.id].name}</h3><p>已驗收 ${game.delivered[g.id] || 0} / ${g.count} 份</p></article>`).join('');
+      $('orders').innerHTML = game.level.goals.map(g => {
+        const item = ITEMS[g.id];
+        const recipe = item.portion ? `每份 ${item.spoons} 大匙（約 ${item.cc} cc） · ` : juiceTargetText(g.id) ? `${juiceTargetText(g.id)} · ` : '';
+        return `<article class="order"><h3>${item.name}</h3><p>${recipe}已驗收 ${game.delivered[g.id] || 0} / ${g.count} 份</p></article>`;
+      }).join('');
       $('tip').textContent = game.level.tip;
       if (session.kind === 'quiz') {
         const left = Math.ceil(Math.max(0, session.quiz.limit - game.clock));

@@ -29,7 +29,10 @@ test('renderer covers every dish, held item, station and wok state without alter
   renderer.draw(game,player,board,new Set(['f']),true,false);
   const juice=new core.Kitchen(()=>.5,'juice-school'), bar=juice.stations.find(s=>s.id==='juice-bar');
   bar.ingredients=['lemon','syrup','ice'];bar.progress=1;renderer.draw(juice,player,bar,new Set(['f']),true,false);
-  bar.item={id:'plumJuice'};bar.ingredients=[];renderer.draw(juice,player,bar,new Set(),true,false);c.check();
+  bar.ingredients=[];bar.mix={lemon:1,plum:0,syrup:15,ice:1};bar.pours=['lemon','syrup','syrup','syrup','ice'];renderer.draw(juice,player,bar,new Set(),true,false);
+  bar.item={id:'plumJuice'};bar.mix={lemon:0,plum:0,syrup:0,ice:0};renderer.draw(juice,player,bar,new Set(),true,false);
+  const sauce=new core.Kitchen(()=>.5,'sauce-school'), cup=sauce.stations.find(s=>s.id==='counter');
+  cup.sauceId='sauce';cup.spoons=1;renderer.draw(sauce,player,cup,new Set(),true,false);c.check();
 });
 
 test('successful flips and deliveries animate, invalid actions do not; pause freezes and reset clears effects', () => {
