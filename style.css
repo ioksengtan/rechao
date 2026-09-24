@@ -269,13 +269,22 @@ body.touch-active .icon-button, body.touch-active .small-action { min-height: 44
   body.touch-active #touch-controls { padding-left: 8px; padding-right: 8px; }
 }
 
-/* v0.14 ink and watercolor chrome. Paper cards, charcoal rules, sage and cream. */
+/* v0.15 watercolor sheet. Double ink mat, paper grain, sage washes — same language as the kitchen. */
 body{
-  background-color:#e7e0d0;
+  background-color:#efe4d2;
   background-image:
-    radial-gradient(circle at 8% 0%, #f4ecd8aa 0 16%, transparent 42%),
-    radial-gradient(circle at 100% 100%, #d5cbb6aa 0 22%, transparent 48%),
-    repeating-linear-gradient(0deg, transparent, transparent 3px, #c9c0ae22 3px, #c9c0ae22 4px);
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .36  0 0 0 0 .32  0 0 0 0 .26  0 0 0 .14 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    radial-gradient(ellipse at 0% 0%, #f7f1e4 0%, transparent 46%),
+    radial-gradient(ellipse at 100% 80%, #d5e4d6aa 0%, transparent 42%),
+    radial-gradient(ellipse at 70% 0%, #f3e0c8aa 0%, transparent 36%);
+}
+h1::after,.level-modal h2::after{
+  content:"";
+  display:block;
+  width:128px;
+  height:14px;
+  margin:6px auto 0;
+  background:center/contain no-repeat url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 14'><path d='M8 8c18-6 28 4 40-1 10-4 16 3 28 0 14-4 22 5 36-1' fill='none' stroke='%238d6840' stroke-width='1'/><path d='M58 8c-6-7-2-9 2-11 3 4 8 2 10-2-2 6 2 8 0 12-4-2-8 1-12 1z' fill='%237f9a86'/></svg>");
 }
 h1 span{color:#9a5344}
 .brand-mark{
@@ -415,3 +424,57 @@ footer{color:#7a7468}
   text-decoration:underline;
   text-underline-offset:4px;
 }
+/* Mounted watercolor sheet: inner rule, wash corners, ticket orders. */
+.brand-mark{
+  width:54px;height:54px;border-radius:50%;
+  background:
+    radial-gradient(circle at 40% 35%, #fffaf2, #f4e6d0 70%);
+  box-shadow:inset 0 0 0 2px #c4a15a, inset 0 0 0 5px #f7f1e4, inset 0 0 0 6.5px #3a4238;
+  transform:none;
+}
+.kitchen-panel,.orders-panel,.recipe-panel,.modal,.dashboard{
+  background:
+    radial-gradient(ellipse at 0 0, #e7f0e6 0%, transparent 42%),
+    radial-gradient(ellipse at 100% 100%, #f6e6d0 0%, transparent 46%),
+    #f7f1e4;
+  border:1.5px solid #3a4238;
+  box-shadow:
+    inset 0 0 0 5px #f7f1e4,
+    inset 0 0 0 6px #3a423855,
+    3px 4px 0 #3a423814;
+}
+.modal{box-shadow:inset 0 0 0 6px #f7f1e4, inset 0 0 0 7px #3a423866, 0 24px 60px #3a423840}
+.order{
+  position:relative;
+  background:#fbf6ea;
+  border:1px solid #3a4238;
+  border-left:4px solid #8fa898;
+  border-top:1px solid #3a4238;
+  border-radius:2px 10px 10px 2px;
+  box-shadow:2px 3px 0 #3a423812;
+}
+.order::before{
+  content:"";
+  display:block;
+  height:7px;
+  margin:-13px -13px 10px;
+  background:radial-gradient(circle at 6px -2px, transparent 3px, #c4a15a 3.5px) left top / 12px 7px repeat-x;
+}
+.order.urgent{border-color:#a85c48;border-left-color:#a85c48;border-top-color:#a85c48}
+.level-card,.career-option{
+  background:
+    linear-gradient(#fbf6ea, #fbf6ea) padding-box,
+    linear-gradient(180deg, #c4a15a, #3a4238) border-box;
+  border:1.5px solid transparent;
+  box-shadow:inset 0 10px 0 #f3e6cc;
+}
+.primary{
+  background:linear-gradient(180deg, #7f9a86, #4e6356);
+  box-shadow:inset 0 1px 0 #e7f0e4, 2px 3px 0 #2f3a3422;
+}
+.panel-heading{
+  background:linear-gradient(180deg, #f7f1e4, #efe4d2);
+  letter-spacing:1px;
+}
+.canvas-wrap{background:#f3e6cc}
+.dish-art{filter:none}
