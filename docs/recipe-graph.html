@@ -89,7 +89,7 @@ footer { color: var(--muted); font-size: 12.5px; max-width: 80ch }
     <div class="canvas" id="canvas" aria-label="食譜關係圖，可上下左右捲動"></div>
     <aside class="card" id="card" aria-live="polite"></aside>
   </div>
-  <footer>做法是依法式料理書整理、用自己的話改寫的簡化摘要，份量以「份」或「匙」為主，不是完整的烹飪指示。虛線框是書上還沒收到做法的醬。</footer>
+  <footer>做法是依法式料理書和社群貼文整理、用自己的話改寫的簡化摘要，份量以「份」或「匙」為主，不是完整的烹飪指示。虛線框是書上還沒收到做法的醬。</footer>
 </div>
 
 <script>
@@ -104,7 +104,7 @@ const D = [
   { id: 'lobster', n: '龍蝦殼', t: 'raw' }, { id: 'seafood', n: '魚與蝦', t: 'raw' }, { id: 'whitewine', n: '白酒', t: 'raw' },
   { id: 'redwine', n: '紅酒', t: 'raw' }, { id: 'madeira', n: '馬德拉酒', t: 'raw' }, { id: 'beer', n: '啤酒', t: 'raw' },
   { id: 'cheese', n: '乳酪', t: 'raw' }, { id: 'basil', n: '羅勒', t: 'raw' }, { id: 'olive', n: '黑橄欖', t: 'raw' },
-  { id: 'balsamic', n: '巴薩米可醋', t: 'raw' },
+  { id: 'balsamic', n: '巴薩米可醋', t: 'raw' }, { id: 'pasta', n: '義大利麵', t: 'raw' },
   // 基底
   { id: 'stock', n: '雞肉澄清湯', t: 'base', i: ['wing'],
     s: ['雞翅從關節切開、骨頭剁斷，先汆燙去血水。', '加水大火煮，浮沫聚成一團再撈；浮油另外收起來就是雞油。', '轉小火保持不滾，燉好幾小時，水少了就補，過濾後是「白色基底」。', '蔬菜切薄片，和打散的蛋白、冰冷的雞絞肉一起搓揉到有黏性。', '白色基底稍微溫熱，一勺一勺拌進絞肉，再全部倒回鍋裡加熱，持續攪拌鍋底。', '湯面從透明轉為泛白時停止攪拌，絞肉浮起成一片蓋子，中間開孔、小火長時間燉。', '熄火靜置，從孔裡慢慢舀出湯，用墊紙巾的濾勺過濾，全程不能弄散肉蓋。'],
@@ -304,7 +304,14 @@ const D = [
   { id: 'vegsauce', n: '法式蔬菜醬汁', t: 'sauce', i: ['paysanne'], s: ['法式田園濃湯留下的湯汁。'], m: [], x: '' },
   { id: 'paprika', n: '牛肉紅椒醬汁', t: 'sauce', i: ['goulash'], s: ['匈牙利牛肉湯過濾後的湯汁。'], m: [], x: '' },
   { id: 'beersauce', n: '比利時啤酒醬', t: 'sauce', i: ['beerwings'], s: ['啤酒燉雞翅收濃後的醬汁。'], m: [], x: '' },
-  { id: 'redwinebeef', n: '牛肉紅酒醬', t: 'sauce', i: ['bourguignon'], s: ['紅酒燉牛肉剩下的湯汁。'], m: [], x: '' }
+  { id: 'redwinebeef', n: '牛肉紅酒醬', t: 'sauce', i: ['bourguignon'], s: ['紅酒燉牛肉剩下的湯汁。'], m: [], x: '' },
+  // 社群貼文的家常菜
+  { id: 'fishcheese', n: '烤魚乳酪醬', t: 'sauce', i: ['seafood', 'basil', 'tomato', 'cheese', 'garlic', 'oil'],
+    s: ['魚（鮭魚或白肉魚）、羅勒或九層塔、番茄罐頭、奶油乳酪放進烤盤，加蒜末和風乾番茄。', '淋橄欖油、撒海鹽。', '進烤箱烤到魚熟。', '攤拌均勻就是醬汁。'],
+    m: ['擺烤盤', '魚肉變白、一推就散開就熟了', '攤勻'], x: '來源：社群貼文（Threads @woodywoody315）。丟進烤箱後可以去做別的菜。' },
+  { id: 'fishpasta', n: '烤魚乳酪義大利麵', t: 'dish', i: ['fishcheese', 'pasta'],
+    s: ['煮好義大利麵。', '和烤魚乳酪醬拌勻。', '撒起司粉增添香氣。'],
+    m: ['拌到醬裹住麵'], x: '醬汁冷了會凝固、加熱又會變軟，適合帶便當。鮭魚太貴可換白肉魚，羅勒可換九層塔。' }
 ];
 
 const byId = Object.fromEntries(D.map(d => [d.id, d]));
