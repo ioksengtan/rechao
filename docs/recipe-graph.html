@@ -104,7 +104,7 @@ const D = [
   { id: 'lobster', n: '龍蝦殼', t: 'raw' }, { id: 'seafood', n: '魚與蝦', t: 'raw' }, { id: 'whitewine', n: '白酒', t: 'raw' },
   { id: 'redwine', n: '紅酒', t: 'raw' }, { id: 'madeira', n: '馬德拉酒', t: 'raw' }, { id: 'beer', n: '啤酒', t: 'raw' },
   { id: 'cheese', n: '乳酪', t: 'raw' }, { id: 'basil', n: '羅勒', t: 'raw' }, { id: 'olive', n: '黑橄欖', t: 'raw' },
-  { id: 'balsamic', n: '巴薩米可醋', t: 'raw' }, { id: 'pasta', n: '義大利麵', t: 'raw' }, { id: 'chilli', n: '辣椒', t: 'raw' }, { id: 'lemon', n: '檸檬', t: 'raw' }, { id: 'honey', n: '蜂蜜', t: 'raw' }, { id: 'egg', n: '雞蛋', t: 'raw' }, { id: 'crumbs', n: '麵包粉', t: 'raw' }, { id: 'cauliflower', n: '花椰菜', t: 'raw' }, { id: 'anchovy', n: '油漬鯷魚', t: 'raw' }, { id: 'pinenut', n: '松子', t: 'raw' },
+  { id: 'balsamic', n: '巴薩米可醋', t: 'raw' }, { id: 'pasta', n: '義大利麵', t: 'raw' }, { id: 'chilli', n: '辣椒', t: 'raw' }, { id: 'lemon', n: '檸檬', t: 'raw' }, { id: 'honey', n: '蜂蜜', t: 'raw' }, { id: 'egg', n: '雞蛋', t: 'raw' }, { id: 'crumbs', n: '麵包粉', t: 'raw' }, { id: 'cauliflower', n: '花椰菜', t: 'raw' }, { id: 'anchovy', n: '油漬鯷魚', t: 'raw' }, { id: 'pinenut', n: '松子', t: 'raw' }, { id: 'ketchup', n: '番茄醬', t: 'raw' }, { id: 'bacon', n: '培根', t: 'raw' }, { id: 'greenpepper', n: '青椒', t: 'raw' },
   // 基底
   { id: 'stock', n: '雞肉澄清湯', t: 'base', i: ['wing'],
     s: ['雞翅從關節切開、骨頭剁斷，先汆燙去血水。', '加水大火煮，浮沫聚成一團再撈；浮油另外收起來就是雞油。', '轉小火保持不滾，燉好幾小時，水少了就補，過濾後是「白色基底」。', '蔬菜切薄片，和打散的蛋白、冰冷的雞絞肉一起搓揉到有黏性。', '白色基底稍微溫熱，一勺一勺拌進絞肉，再全部倒回鍋裡加熱，持續攪拌鍋底。', '湯面從透明轉為泛白時停止攪拌，絞肉浮起成一片蓋子，中間開孔、小火長時間燉。', '熄火靜置，從孔裡慢慢舀出湯，用墊紙巾的濾勺過濾，全程不能弄散肉蓋。'],
@@ -329,7 +329,10 @@ const D = [
     m: ['冷鍋小火：火太大蒜會焦苦', '壓碎鯷魚到融化'], x: '來源：Instagram 短影片（@chef.ahhao、@buonobella525）。台式版本可用小魚乾。' },
   { id: 'cauliflowerdish', n: '蒜香鯷魚炒花椰菜', t: 'dish', i: ['anchovyoil', 'cauliflower', 'whitewine', 'pinenut', 'cheese'],
     s: ['花椰菜切小朵，滾水汆燙幾分鐘、撈起瀝乾。', '放入鯷魚蒜香油，中大火快速翻炒、每朵裹上油。', '沿鍋邊加少許白酒，翻炒到酒精揮發。', '起鍋撒烤松子和現刨的帕達諾起司。'],
-    m: ['汆燙計時', '快炒裹油', '沿鍋邊喷白酒'], x: '把配菜變主角的義大利家常菜。台式版本：蒜炒花椰菜。' }
+    m: ['汆燙計時', '快炒裹油', '沿鍋邊喷白酒'], x: '把配菜變主角的義大利家常菜。台式版本：蒜炒花椰菜。' },
+  { id: 'napolitan', n: '日式拿波里義大利麵', t: 'dish', i: ['pasta', 'ketchup', 'bacon', 'onion', 'greenpepper', 'egg', 'whitewine', 'butter'],
+    s: ['青椒切圈、洋蔥切絲、培根切條。', '冷鍋加橄欖油，中小火炒香洋蔥和培根，培根微微上色後加青椒。', '倒一點白酒嗆鍋，加番茄醬充分拌炒，把酸味炒柔和。', '加少許高湯或煮麵水，放煮好的麵和一塊奶油，拌炒收汁。', '放上邊緣焦脆、蛋黃半熟的煎蛋。'],
+    m: ['炒番茄醬到酸味柔和', '拌炒收汁', '煎蛋：邊緣焦脆、蛋黃半熟'], x: '來源：Instagram 短影片（@chef.ahhao、@buonobella525）。日本喫茶店的經典。台式版本：番茄炒麵。' }
 ];
 
 const byId = Object.fromEntries(D.map(d => [d.id, d]));
