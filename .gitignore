@@ -5,3 +5,6 @@ node_modules/
 *.log
 .DS_Store
 Thumbs.db
+
+# Art master PNGs live outside git; only tools/build_assets.py output goes in assets/.
+art-src/
