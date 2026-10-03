@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>rechao 醬汁家族圖</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap">
+<style>
+/* Layout: graph canvas on the left that scrolls on its own, recipe card on the right (stacks below on phones). */
+:root {
+  --bg: #f3f4f1; --surface: #ffffff; --ink: #1f2622; --muted: #5d6860; --line: #c9cfc8; --grid: #e3e7e1;
+  --raw: #4f7a3a; --raw-bg: #e8f0e1; --base: #a5651b; --base-bg: #f6ead9;
+  --sauce: #9b3a2e; --sauce-bg: #f6e3df; --dish: #2f5f8a; --dish-bg: #e1ebf4; --missing: #8a8f88;
+  --focus: #c8641e;
+  --display: "Noto Serif TC", "Songti TC", serif; --body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #171b19; --surface: #212724; --ink: #e8ece7; --muted: #a3ada5; --line: #46504a; --grid: #2b322e;
+  --raw: #9fcb84; --raw-bg: #263420; --base: #e2a65c; --base-bg: #3a2c19; --sauce: #ec8f80; --sauce-bg: #3d2420;
+  --dish: #8bb8e3; --dish-bg: #1e2f40; --missing: #7d847e; --focus: #f0a060; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #171b19; --surface: #212724; --ink: #e8ece7; --muted: #a3ada5; --line: #46504a; --grid: #2b322e;
+  --raw: #9fcb84; --raw-bg: #263420; --base: #e2a65c; --base-bg: #3a2c19; --sauce: #ec8f80; --sauce-bg: #3d2420;
+  --dish: #8bb8e3; --dish-bg: #1e2f40; --missing: #7d847e; --focus: #f0a060; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.6; padding: 20px 16px 32px; }
+.wrap { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
+header h1 { font-family: var(--display); font-size: 28px; margin: 0 0 4px; text-wrap: balance; letter-spacing: .02em }
+header p { margin: 0; color: var(--muted); max-width: 68ch }
+.tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center }
+.legend { display: flex; flex-wrap: wrap; gap: 6px }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 13px; cursor: pointer }
+.chip i { width: 10px; height: 10px; border-radius: 3px; display: inline-block }
+.chip[aria-pressed="false"] { opacity: .45 }
+.search { display: flex; gap: 6px; align-items: center; flex: 1 1 220px; max-width: 360px }
+.search input { flex: 1; min-width: 0; font: inherit; font-size: 14px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink) }
+.zoom { display: flex; gap: 4px }
+.zoom button { font: inherit; font-size: 14px; width: 34px; height: 32px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; cursor: pointer }
+button:focus-visible, input:focus-visible, .node:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start }
+@media (max-width: 900px) { .main { grid-template-columns: minmax(0, 1fr) } }
+.canvas { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: auto; height: min(78vh, 900px); min-height: 420px }
+.canvas svg { display: block }
+.edge { fill: none; stroke: var(--line); stroke-width: 1.2; transition: opacity .15s }
+.edge.on { stroke: var(--focus); stroke-width: 2 }
+.node { cursor: pointer; transition: opacity .15s }
+.node rect { stroke-width: 1.4 }
+.node text { font-family: var(--body); font-size: 12.5px; fill: var(--ink); pointer-events: none }
+.node.raw rect { fill: var(--raw-bg); stroke: var(--raw) }
+.node.base rect { fill: var(--base-bg); stroke: var(--base) }
+.node.sauce rect { fill: var(--sauce-bg); stroke: var(--sauce) }
+.node.dish rect { fill: var(--dish-bg); stroke: var(--dish) }
+.node.missing rect { stroke-dasharray: 4 3; stroke: var(--missing) }
+.node.sel rect { stroke: var(--focus); stroke-width: 3 }
+.dim { opacity: .12 }
+.colhead { font-size: 11.5px; fill: var(--muted); letter-spacing: .08em }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px 20px; position: sticky; top: env(safe-area-inset-top, 0px); max-height: min(78vh, 900px); overflow: auto }
+.card h2 { font-family: var(--display); font-size: 22px; margin: 6px 0 4px; text-wrap: balance }
+.badge { font-size: 12px; letter-spacing: .06em; padding: 2px 8px; border-radius: 6px; display: inline-block }
+.badge.raw { background: var(--raw-bg); color: var(--raw) } .badge.base { background: var(--base-bg); color: var(--base) }
+.badge.sauce { background: var(--sauce-bg); color: var(--sauce) } .badge.dish { background: var(--dish-bg); color: var(--dish) }
+.card h3 { font-size: 13px; color: var(--muted); letter-spacing: .08em; margin: 16px 0 6px; font-weight: 500 }
+.card ol, .card ul { margin: 0; padding-left: 1.3em }
+.card li { margin: 3px 0 }
+.card p { margin: 6px 0 0 }
+.links { display: flex; flex-wrap: wrap; gap: 6px }
+.links .chip { padding: 2px 10px }
+.empty { color: var(--muted); font-size: 14px }
+.note { color: var(--muted); font-size: 13px; border-top: 1px solid var(--grid); padding-top: 10px; margin-top: 16px }
+footer { color: var(--muted); font-size: 12.5px; max-width: 80ch }
+@media (prefers-reduced-motion: reduce) { .edge, .node { transition: none } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>醬汁家族圖</h1>
+    <p>從原料到醬汁再到料理的完整關係。點任何一個節點，右邊會列出做法、手藝時刻，以及它用到什麼、用在哪裡；整條上下游會一起標亮。</p>
+  </header>
+  <div class="tools">
+    <div class="legend" id="legend" role="group" aria-label="顯示的類別"></div>
+    <label class="search" for="q"><span>搜尋</span><input id="q" type="search" placeholder="例如：貝夏媚醬" autocomplete="off"></label>
+    <div class="zoom" role="group" aria-label="縮放"><button id="zoomOut" aria-label="縮小">−</button><button id="zoomReset" aria-label="原始大小">1:1</button><button id="zoomIn" aria-label="放大">＋</button></div>
+  </div>
+  <div class="main">
+    <div class="canvas" id="canvas" aria-label="醬汁關係圖，可上下左右捲動"></div>
+    <aside class="card" id="card" aria-live="polite"></aside>
+  </div>
+  <footer>做法是依法式料理書整理、用自己的話改寫的簡化摘要，份量以「份」或「匙」為主，不是完整的烹飪指示。虛線框是書上還沒收到做法的醬。</footer>
+</div>
+
+<script>
+const TYPES = { raw: '原料', base: '基底', sauce: '醬汁', dish: '料理' };
+// n: name, t: type, i: inputs, s: steps, m: craft moments, x: note, miss: recipe not received yet
+const D = [
+  // 原料
+  { id: 'wing', n: '雞翅', t: 'raw' }, { id: 'shank', n: '牛小腿肉', t: 'raw' }, { id: 'butter', n: '奶油', t: 'raw' },
+  { id: 'flour', n: '麵粉', t: 'raw' }, { id: 'milk', n: '牛奶', t: 'raw' }, { id: 'yolk', n: '蛋黃', t: 'raw' },
+  { id: 'oil', n: '橄欖油', t: 'raw' }, { id: 'vinegar', n: '酒醋', t: 'raw' }, { id: 'tomato', n: '番茄', t: 'raw' },
+  { id: 'onion', n: '洋蔥', t: 'raw' }, { id: 'garlic', n: '大蒜', t: 'raw' }, { id: 'mushroom', n: '蘑菇', t: 'raw' },
+  { id: 'lobster', n: '龍蝦殼', t: 'raw' }, { id: 'seafood', n: '魚與蝦', t: 'raw' }, { id: 'whitewine', n: '白酒', t: 'raw' },
+  { id: 'redwine', n: '紅酒', t: 'raw' }, { id: 'madeira', n: '馬德拉酒', t: 'raw' }, { id: 'beer', n: '啤酒', t: 'raw' },
+  { id: 'cheese', n: '乳酪', t: 'raw' }, { id: 'basil', n: '羅勒', t: 'raw' }, { id: 'olive', n: '黑橄欖', t: 'raw' },
+  { id: 'balsamic', n: '巴薩米可醋', t: 'raw' },
+  // 基底
+  { id: 'stock', n: '雞肉澄清湯', t: 'base', i: ['wing'],
+    s: ['雞翅從關節切開、骨頭剁斷，先汆燙去血水。', '加水大火煮，浮沫聚成一團再撈；浮油另外收起來就是雞油。', '轉小火保持不滾，燉好幾小時，水少了就補，過濾後是「白色基底」。', '蔬菜切薄片，和打散的蛋白、冰冷的雞絞肉一起搓揉到有黏性。', '白色基底稍微溫熱，一勺一勺拌進絞肉，再全部倒回鍋裡加熱，持續攪拌鍋底。', '湯面從透明轉為泛白時停止攪拌，絞肉浮起成一片蓋子，中間開孔、小火長時間燉。', '熄火靜置，從孔裡慢慢舀出湯，用墊紙巾的濾勺過濾，全程不能弄散肉蓋。'],
+    m: ['撈浮沫：等浮沫聚成一團', '控火：保持不滾', '停止攪拌：湯面由透明轉白', '過濾：慢慢舀，不弄散肉蓋'],
+    x: '剩下的材料可以再燉一次「二湯」，比較混濁，適合燉煮。遊戲裡適合放在請客前一天先做。' },
+  { id: 'beefstock', n: '牛肉高湯', t: 'base', i: ['shank'],
+    s: ['牛肉切成比一口稍大的塊。', '大火熱油，分三批煎，每批不要擠，每一面都煎出焦色但不能焦；最後一批拌入番茄膏。', '牛肉進烤箱烤，中途翻動。', '烤盤和平底鍋加水，刮下黏在底部的精華一起倒進深鍋。', '大火煮、撈浮沫和油，轉小火保持不滾燉幾小時，水少了就補。', '過濾兩次，第二次在濾勺上鋪濾布。'],
+    m: ['煎肉上色：看準時機翻面', '刮鍋底：精華全部倒回湯裡', '撈浮沫、控火、過濾'],
+    x: '煮過的牛肉泡鹽水冷藏，留給茄汁牛肉燴飯。' },
+  { id: 'boiledbeef', n: '熬過的牛肉', t: 'base', i: ['beefstock'],
+    s: ['牛肉高湯過濾後留下的牛小腿肉。', '泡在鹽水裡冷藏保存。'], m: [], x: '高湯的鮮味已經熬出，正好吸收醬汁的味道。' },
+  { id: 'roux', n: '奶油麵糊', t: 'base', i: ['butter', 'flour'],
+    s: ['奶油中火融化，快融完時熄火，麵粉一口氣倒入拌勻。', '開小火，用木鍋鏟從鍋底不斷翻拌，不要炒焦；麵糊從丸子狀慢慢變滑、有光澤。', '翻拌到開始冒小泡，火再轉小；顏色從偏黃變偏白、翻動變輕，就是炒熟了。'],
+    m: ['炒麵糊：用鍋鏟刮過鍋底，留下刮痕是還沒熟，馬上流回是熟了'],
+    x: '麵粉和奶油約 1 比 1。之後依加入的液體變成不同的白醬。' },
+  { id: 'hazel', n: '榛果奶油', t: 'base', i: ['butter'], miss: true,
+    s: ['把奶油加熱到呈榛果色、散發堅果香氣。'], m: [], x: '書上的做法在第 66 頁，還沒收到。多種醬和牛排都會用到。' },
+  // 醬汁
+  { id: 'blanc', n: '白酒醬', t: 'sauce', i: ['stock', 'whitewine', 'butter'],
+    s: ['除了奶油，白酒、紅蔥頭末和雞肉澄清湯全部下鍋，大火煮。', '煮到濃稠、紅蔥頭末浮到表面時，加入奶油。', '用打蛋器拌到均勻光滑。'],
+    m: ['收汁：看到紅蔥頭浮起就加奶油，太早太稀，太晚燒乾', '拌奶油：連續攪拌到滑順'], x: '配海鮮。書中沒有直接的應用料理。' },
+  { id: 'americaine', n: '美式龍蝦醬', t: 'sauce', i: ['lobster', 'stock', 'garlic'],
+    s: ['龍蝦殼切小，不重疊地鋪在烤盤上低溫烤，中途翻面，烤到水分乾但不焦。', '大蒜帶皮切半，和殼、白蘭地、苦艾酒、澄清湯、水一起大火熬約一小時，邊熬邊撈浮沫。', '用夾紙巾的兩個濾勺過濾。', '剩下的殼再加一點水翻攪、刮鍋，再過濾一次。', '兩次的湯合在一起大火煮，煮到顏色變深、量減少一半。'],
+    m: ['烤殼：烤焦會苦', '收汁：量減一半就關火'], x: '平常留下的龍蝦殼和蝦腳冷凍累積，夠量再一次熬。' },
+  { id: 'champignon', n: '法式蘑菇醬', t: 'sauce', i: ['mushroom', 'hazel', 'stock'],
+    s: ['紅蔥頭和蘑菇切薄片。', '做榛果奶油，大火快炒蘑菇、撒鹽。', '蘑菇出汁後加紅蔥頭，炒到上色、水分完全收乾。', '加雞肉澄清湯煮滾、調味。', '用果汁機打勻，再過濾。'],
+    m: ['炒到收乾：還有水分就加湯，湯味會蓋過蘑菇'], x: '一醬三用：炒栗子、菇湯、菇菇布丁。' },
+  { id: 'ail', n: '大蒜醬', t: 'sauce', i: ['garlic', 'onion', 'stock'],
+    s: ['大蒜切半去蒜芯，洋蔥切薄片。', '洋蔥、奶油、水中火炒到釋出甜味。', '加大蒜和雞肉澄清湯中火燉。', '用手指一壓大蒜就碎時，加鮮奶油煮滾、調味。', '倒進果汁機打到滑順。'],
+    m: ['大蒜加進去就馬上加湯，蒜味才不會太衝', '壓蒜測軟度'], x: '' },
+  { id: 'veloute', n: '天鵝絨醬', t: 'sauce', i: ['roux', 'stock'],
+    s: ['先炒好奶油麵糊。', '雞肉澄清湯分幾次加入：先加一點拌成一團，再慢慢加，避免分離。', '加到一半變滑順後，改用打蛋器拌入剩下的湯，表面有光澤、呈黏稠就完成。'],
+    m: ['分次加湯：拌成一團才能再加，一次加太多會結塊'], x: '' },
+  { id: 'bechamel', n: '貝夏媚醬', t: 'sauce', i: ['roux', 'milk'],
+    s: ['先炒好奶油麵糊。', '牛奶分幾次加入，前幾次先熄火拌成一團，避免溫差產生顆粒，之後再開小火。', '鍋邊開始變乾時，用橡膠刮刀刮乾淨。', '改用打蛋器拌入剩下的牛奶，拌到有光澤、黏稠。'],
+    m: ['分次加牛奶：前幾次先關火', '刮鍋邊'], x: '麵粉、奶油、牛奶約 1 比 1 比 10。法式「白醬」。' },
+  { id: 'mornay', n: '莫爾奈醬', t: 'sauce', i: ['bechamel', 'cheese'],
+    s: ['冷掉的貝夏媚醬加一點水加熱揉開。', '變滑順後熄火，拌入乳酪（約貝夏媚醬的十分之一）。'], m: ['熄火時機：醬滑順了才加乳酪'], x: '' },
+  { id: 'allemande', n: '阿勒曼德醬', t: 'sauce', i: ['mornay', 'yolk'],
+    s: ['莫爾奈醬放進碗裡打散。', '加蛋黃拌勻。'], m: ['打散、拌勻'], x: '不適合先做好保存。' },
+  { id: 'soubise', n: '洋蔥白醬', t: 'sauce', i: ['bechamel', 'onion'],
+    s: ['洋蔥切薄片，和奶油、水一起炒到釋出甜味，不要上色，乾了就補水。', '加入貝夏媚醬和鮮奶油煮一下。', '用濾勺壓過濾，壓出醬汁。'], m: ['炒洋蔥不上色', '壓過濾'], x: '' },
+  { id: 'lyonnaise', n: '里約醬', t: 'sauce', i: ['onion', 'beefstock', 'whitewine'],
+    s: ['洋蔥切薄片、大蒜切半，和奶油一起中火炒。', '鍋邊開始變褐、水分變少時，加一點白酒把鍋邊的褐色刮下來拌回洋蔥；重複幾次，炒到深褐、黏稠。', '加牛肉高湯煮，撈浮沫，煮到剩一半。', '用濾勺壓出醬汁。'],
+    m: ['炒洋蔥、刮鍋邊：忘了刮會焦'], x: '' },
+  { id: 'diable', n: '惡魔芥末醬', t: 'sauce', i: ['lyonnaise', 'hazel', 'vinegar'],
+    s: ['紅蔥頭用奶油炒乾，加白酒醋收乾，加黑胡椒和里約醬。', '煮滾時一口氣加入榛果奶油，拌到乳化，收到一半。', '加伍斯特醬；加黃芥末醬後馬上熄火，辣味才不會揮發。'],
+    m: ['一口氣加奶油：滾的那一刻', '加芥末後馬上關火'], x: '' },
+  { id: 'charcutiere', n: '酸黃瓜洋蔥醬', t: 'sauce', i: ['lyonnaise', 'hazel', 'onion'],
+    s: ['洋蔥用奶油炒香但不上色，加白酒醋、加里約醬。', '煮滾時一口氣加入榛果奶油乳化，調味。', '酸黃瓜最後才放，稍微拌一下就關火，保留脆度。'],
+    m: ['一口氣加奶油', '酸黃瓜最後放'], x: '原本是淋在煎豬排上的醬。' },
+  { id: 'bordelaise', n: '波爾多紅酒醬', t: 'sauce', i: ['redwine', 'beefstock'],
+    s: ['紅蔥頭切薄片，和紅酒一起煮滾後轉小火煨。', '收到一半加牛肉高湯，煮滾轉小火、撈浮沫。', '收到約三分之二，過濾時壓出紅蔥頭的汁。'],
+    m: ['小火收汁：火大紅酒會變澀'], x: '' },
+  { id: 'madere', n: '馬德拉醬', t: 'sauce', i: ['madeira', 'beefstock'],
+    s: ['馬德拉酒和白蘭地小火加熱，收到一半。', '加牛肉高湯繼續收。', '表面有光澤、濃到會掛在湯匙上就完成。'],
+    m: ['小火收汁：烈酒火太大可能起火', '湯匙掛醬'], x: '' },
+  { id: 'vinaigrette', n: '法式油醋醬', t: 'sauce', i: ['vinegar', 'oil'],
+    s: ['紅酒醋、第戎芥末醬、鹽先打勻。', '一點一點加橄欖油，拌到黏稠乳化。'], m: ['滴油乳化：一次太多會油水分離'], x: '不適合先做好存放。' },
+  { id: 'mayo', n: '美乃滋醬', t: 'sauce', i: ['yolk', 'oil', 'vinegar'],
+    s: ['蛋黃打散，加鹽和白胡椒。', '橄欖油一滴一滴加入，朝同一方向不停攪拌；顏色變白、變硬也不要停。', '最後加紅酒醋拌勻。'],
+    m: ['一手畫圈攪拌、一手控制滴油'], x: '生蛋黃要注意食品安全。' },
+  { id: 'rouille', n: '蒜泥蛋黃醬', t: 'sauce', i: ['yolk', 'garlic', 'oil'],
+    s: ['番紅花先微波烘乾、壓碎。', '和蛋黃、蒜泥拌在一起，加鹽和紅椒粉。', '橄欖油慢慢滴入，不停攪拌。', '最後加一點熱水拌勻，可以防止油水分離。'],
+    m: ['滴油乳化'], x: '配馬賽魚湯的醬。' },
+  { id: 'hollandaise', n: '荷蘭醬', t: 'sauce', i: ['yolk', 'butter'],
+    s: ['蛋黃加水，用「8」字攪拌打入空氣，加鹽。', '隔水小火不停打，刮下碗邊凝固的部分，打到刮碗底會留痕。', '一點一點加融化奶油，打到黏稠就離火。', '加檸檬汁、過濾。'],
+    m: ['隔水打發：一邊顧火一邊打', '滴下留下緞帶狀痕跡就是太濃了'], x: '不能保存，要用時才做。' },
+  { id: 'bearnaise', n: '貝亞恩斯醬', t: 'sauce', i: ['yolk', 'butter', 'whitewine', 'vinegar'],
+    s: ['紅蔥頭、龍蒿、白酒、白酒醋、黑胡椒先收乾，加水煮滾、放涼。', '和蛋黃一起隔水小火以「8」字攪拌。', '打蛋器撈起時醬濃稠地緩緩流下，就停止加熱。', '逐次加融化奶油乳化，加番茄醬和鹽調味，過濾後拌入荷蘭芹。'],
+    m: ['隔水打發', '加奶油乳化'], x: '傳統的牛排醬，不能保存。' },
+  { id: 'coulis', n: '番茄糊紅醬', t: 'sauce', i: ['tomato'],
+    s: ['番茄不削皮，先打兩顆成液體，其他一顆一顆丟進去打。', '過濾、壓出汁。', '大火煮滾轉小火燉，偶爾攪拌；泡沫消失、收汁後加鹽。', '燉到刮鍋底會留下刮痕就完成。'],
+    m: ['一顆一顆加：節奏型操作', '刮鍋底看刮痕'], x: '番茄皮有甜味的果膠，所以不削皮；也不用撈浮沫。' },
+  { id: 'tomate', n: '法式番茄醬', t: 'sauce', i: ['tomato', 'onion', 'butter'],
+    s: ['番茄切大塊，紅蘿蔔、西洋芹、洋蔥切丁，大蒜切片，培根切條。', '奶油炒培根出香，加番茄以外的蔬菜，炒到鍋底有焦色、蔬菜出甜。', '加番茄膏小火翻炒去酸，邊炒邊刮下鍋底精華，不要炒焦。', '加番茄和水，大火煮滾轉小火，煮到蔬菜變軟，加鹽再煮。', '煮到收乾呈厚實狀，再加水刮下鍋面精華煮滾、調味、過濾。'],
+    m: ['炒蔬菜刮鍋底'], x: '和番茄糊紅醬同為番茄醬，滋味截然不同。' },
+  { id: 'balsamico', n: '巴薩米可醋醬', t: 'sauce', i: ['balsamic'],
+    s: ['巴薩米可醋大火煮滾轉小火，保持冒小泡泡，有浮沫就撈。', '整鍋開始滾大泡時容易燒焦，要特別留意。', '燉到剩一半、有光澤和黏稠感；冷卻後會變稠變硬，濃度差不多就先關火。'],
+    m: ['小泡與大泡：看到大泡就轉小火', '提前關火：冷了剛好'], x: '只有一樣材料，最簡單的收汁特寫範例。' },
+  { id: 'tapenade', n: '橄欖醬', t: 'sauce', i: ['olive', 'garlic', 'oil'],
+    s: ['大蒜去蒜芯切小塊。', '橄欖油以外的材料全部放進調理機，鯷魚罐頭的油也倒進去，分次慢慢打，刮下沾在旁邊的碎末。', '混合均勻後，一邊打一邊滴入橄欖油；顆粒不用打得很細。'],
+    m: ['分次打、刮邊：打太猛橄欖會發熱'], x: '書中沒有應用料理。' },
+  { id: 'pistou', n: '羅勒青醬', t: 'sauce', i: ['basil', 'garlic', 'cheese', 'oil'],
+    s: ['大蒜切半去蒜芯。', '羅勒、大蒜、乳酪、鹽和一半的橄欖油先打，刮下沾在旁邊的碎末。', '打到滑順後加入剩下的油，再打碎。'],
+    m: ['分次打、刮邊'], x: '先加油是為了防止羅勒切口變色。台式版本可以用九層塔。' },
+  { id: 'ravigote', n: '法式酸辣醬', t: 'sauce', i: [], miss: true, s: [], m: [], x: '書上第 93 頁，做法還沒收到。' },
+  { id: 'roquefort', n: '羅克福乾酪醬', t: 'sauce', i: ['cheese'], miss: true, s: [], m: [], x: '書上第 96 頁，做法還沒收到。' },
+  { id: 'roquefortbutter', n: '羅克福乾酪奶油醬', t: 'sauce', i: ['cheese', 'butter'], miss: true, s: [], m: [], x: '書上第 96 頁，做法還沒收到。' },
+  // 料理
+  { id: 'tomatobeef', n: '茄汁牛肉燴飯', t: 'dish', i: ['boiledbeef', 'tomato', 'onion', 'cheese'],
+    s: ['洋蔥切薄片，和奶油、少許水炒成炒洋蔥。', '加番茄、水和牛肉大火煮，一邊壓碎牛肉一邊攪拌，加鹽。', '加酸黃瓜和胡椒煮滾，拌入荷蘭芹。', '倒入焗烤盤撒乳酪，高溫烤到表面上色。'],
+    m: ['切洋蔥薄片', '炒洋蔥不炒焦', '烤到上色'], x: '台式版本：番茄燉牛肉、番茄牛肉燴飯。' },
+  { id: 'porkloin', n: '法式燜燒豬里肌', t: 'dish', i: ['madere'],
+    s: ['豬肉抹鹽放一會兒；洋蔥切大塊、蘿蔔和馬鈴薯滾刀切。', '馬鈴薯先炒到上色，再加洋蔥蘿蔔，拌鹽和奶油。', '豬肉轉動著煎到表面上色。', '蔬菜、水和醬一起加入，蓋上鍋蓋燜煮約十分鐘。', '切片和蔬菜、醬汁一起盛盤。'],
+    m: ['滾刀切', '煎肉上色'], x: '台式版本：紅燒豬肉。' },
+  { id: 'pepper', n: '青椒鑲肉', t: 'dish', i: ['madere'],
+    s: ['洋蔥切末用奶油炒甜。', '牛豬綜合絞肉加鹽胡椒搓揉，拌入洋蔥。', '青椒挖掉蒂頭和籽，一點一點塞滿肉。', '肉面朝下站著小火慢煎、擦掉多的油，凝固後起鍋；再煎每一面到熟透。', '盤底鋪熱過的醬。'],
+    m: ['竹籤插最粗處幾秒，中心是熱的就熟了'], x: '' },
+  { id: 'sole', n: '油醋香煎牛舌魚', t: 'dish', i: ['vinaigrette'],
+    s: ['牛舌魚去皮、抹鹽，薄薄裹一層麵粉。', '皮較厚的一面朝下大火煎，擦掉多的油。', '煎出金黃色翻面，改中火。', '壓一下魚骨邊緣，「啪」地裂開就熟了，淋上油醋醬。', '配菜：小青椒大火炒上色、撒鹽，沿鍋邊淋一點醬油。'],
+    m: ['煎魚上色翻面', '壓魚骨聽裂開聲'], x: '台式版本：乾煎魚。' },
+  { id: 'asparagus', n: '水煮白蘆筍佐荷蘭醬', t: 'dish', i: ['hollandaise'],
+    s: ['蘆筍削皮，皮留著。', '水、鹽、蘆筍皮先煮滾、撈浮沫。', '放蘆筍、用皮當蓋子煮一下，翻面蓋鍋再煮一下就關火。', '蘆筍泡在湯裡放到不燙手，吸飽湯的風味。', '切掉硬的根部，盛盤淋醬。'],
+    m: ['用皮煮湯', '泡在湯裡放涼'], x: '台式版本：水煮竹筍。' },
+  { id: 'grapefruit', n: '青醬葡萄柚沙拉', t: 'dish', i: ['pistou'],
+    s: ['羅勒葉先素炸當裝飾。', '葡萄柚一瓣一瓣剝開、去薄皮，放進大碗。', '青醬從周圍加入，輕輕拌、不要壓壞果肉，加胡椒。', '盛盤、放上炸羅勒。'],
+    m: ['剝果肉', '輕拌'], x: '用酸度高的黃色葡萄柚；甜的粉紅葡萄柚會模糊味道。' },
+  { id: 'scallop', n: '法式香煎扇貝', t: 'dish', i: ['veloute', 'stock'],
+    s: ['扇貝拆成貝柱和裙邊。', '咖哩粉炒香，加澄清湯、天鵝絨醬、鮮奶油調濃度。', '貝柱大火煎，靠鍋邊扶正；底部一圈金黃就翻面、關火，用餘熱煎背面。', '裙邊大火快煎。', '醬打到起泡，淋在擺回殼裡的扇貝上。'],
+    m: ['翻面與關火用餘熱：側面膨起、按壓有彈性最好'], x: '台式版本：乾煎干貝。' },
+  { id: 'chaudfroid', n: '法式白醬冰鎮雞柳', t: 'dish', i: ['veloute', 'stock'],
+    s: ['雞胸去皮、筋和薄膜，切兩塊，撒鹽放一會兒；吉利丁泡冰水。', '澄清湯加熱，放雞肉和奶油，約一分鐘翻面，關火用餘熱泡到室溫，冷藏。', '湯過濾後加天鵝絨醬、鮮奶油、鹽，溫度升高後放入吉利丁溶解，不能太燙。', '醬一口氣淋在雞肉上，不要碰到表面，冷藏凝固；重複兩三次。', '雞皮小火煎脆當配菜。'],
+    m: ['一口氣淋醬', '吉利丁溫度在範圍內'], x: '冷盤，適合先做好。' },
+  { id: 'bisque', n: '法式濃湯', t: 'dish', i: ['americaine'],
+    s: ['美式龍蝦醬、鮮奶油、奶油、幾滴白蘭地、鹽、紅椒粉一起大火煮滾就完成。'], m: [], x: '只有一步：示範「半成品讓菜變簡單」。' },
+  { id: 'lobsterdish', n: '香煎奶油龍蝦', t: 'dish', i: ['americaine'],
+    s: ['龍蝦拆成頭、鉗、腹部；殼留給醬用，蝦膏留下。', '鉗和腹部先燙一下取肉。', '腹部肉裹薄粉煎，加奶油、用湯匙把奶油淋在肉上。', '醬和白蘭地煮濃、加奶油。', '盛回殼裡淋醬。'],
+    m: ['拆解龍蝦', '用湯匙淋奶油'], x: '台式版本可改用大草蝦。' },
+  { id: 'coral', n: '香煎蝦膏排', t: 'dish', i: ['americaine'],
+    s: ['拆龍蝦留下的蝦膏擦乾、撒鹽，裹粉和蛋液。', '小火煎到膨起、四周冒泡。', '盤底鋪醬。'], m: ['會膨起來的煎蛋液'], x: '一尾龍蝦不浪費：肉、殼、蝦膏各有用途。' },
+  { id: 'gratin', n: '焗烤馬鈴薯牛肉', t: 'dish', i: ['bechamel'],
+    s: ['馬鈴薯煮熟。', '奶油小火炒牛絞肉，一邊壓散到肉開始彈動、出香氣，加洋蔥和蒜炒熟。', '肉鋪進焗烤盤。', '馬鈴薯壓成泥，和白醬拌在一起鋪上。', '撒乳酪，進烤箱烤到上色。'],
+    m: ['壓馬鈴薯不要壓太細', '烤到上色'], x: '' },
+  { id: 'turnip', n: '白醬燉蕪菁', t: 'dish', i: ['bechamel'],
+    s: ['蕪菁切塊，和水、奶油煨到黏糊。', '蕪菁葉切段、快炒。', '全部拌入白醬，加鮮奶油。'], m: ['煨到可以壓碎'], x: '台式版本：奶油燉白菜。' },
+  { id: 'chickenmush', n: '白醬燉綜合菇雞塊', t: 'dish', i: ['soubise'],
+    s: ['雞腿肉去筋切塊、抹鹽。', '雞皮朝下中火煎，用湯匙把油淋在雞肉上。', '上色後翻面，加菇類吸雞油。', '倒入洋蔥白醬，大火煮滾。'],
+    m: ['煎雞皮時留下的油給菇類用'], x: '先做的東西留下的油，讓後面更好吃。' },
+  { id: 'souffle', n: '舒芙蕾', t: 'dish', i: ['allemande', 'cheese'],
+    s: ['烤杯抹奶油、撒麵粉，冷藏。', '蛋白、鹽、塔塔粉打到直挺。', '先舀一匙拌入阿勒曼德醬和乳酪，再全部快拌。', '裝到杯緣下方，擦乾淨杯緣。', '先微波一下，隔水加熱到開始膨起，再進烤箱。'],
+    m: ['蛋白打到直挺', '拌的時候不要消泡'], x: '這批裡最難的一道，會塌掉，可以當進階挑戰。' },
+  { id: 'scrambled', n: '牛絞肉洋蔥嫩炒蛋', t: 'dish', i: ['lyonnaise'],
+    s: ['牛絞肉小火炒散，加洋蔥炒到上色，放涼。', '蛋加鮮奶油打散。', '小火慢炒蛋，從鍋邊刮向中間，黏呼呼時就起鍋。', '盤底鋪醬，配烤麵包。'], m: ['小火、不停攪拌，蛋還濕潤就起鍋'], x: '台式版本：滑蛋牛肉。' },
+  { id: 'brochette', n: '法式串燒', t: 'dish', i: ['diable'],
+    s: ['豬肉和雞肉切塊、交錯串起，撒鹽抹油。', '烤網離火一段距離，中火烤到兩面上色、流出透明肉汁。', '洋蔥、青椒切塊另外串烤。', '淋醬。'], m: ['離火慢烤：肉汁變透明就熟了'], x: '台式版本：烤肉串。' },
+  { id: 'lamb', n: '普羅旺斯羊小排', t: 'dish', i: ['diable'],
+    s: ['羊排撒鹽；番茄切半烤。', '麵包粉、荷蘭芹、蒜、橄欖油拌成香草麵包粉。', '肥邊朝下立起來煎，把油逼出來；兩面煎金黃。', '抹芥末醬、壓上麵包粉，進烤箱烤酥。', '盤底鋪醬。'], m: ['立起來煎肥邊'], x: '' },
+  { id: 'porkshoulder', n: '香煎馬鈴薯梅花豬', t: 'dish', i: ['charcutiere'],
+    s: ['豬肉撒鹽，馬鈴薯切塊。', '豬肉和馬鈴薯一起中火煎，肉底下保持有油。', '上色後翻面加奶油；表面流出少許血水就起鍋。', '馬鈴薯煎金黃、拌荷蘭芹。', '醬和鍋裡的豬油一起加熱，淋在切片的肉上。'],
+    m: ['看血水判斷熟度'], x: '台式版本：糖醋里肌。' },
+  { id: 'steak', n: '法式牛排佐焗烤馬鈴薯', t: 'dish', i: ['bordelaise', 'hazel', 'redwine'],
+    s: ['牛肩肉撒鹽，放在室溫。', '紅酒收成「酒之鏡」，加紅酒醬、榛果奶油和胡椒。', '牛排大火煎、轉小火，翻面、立起來煎側面，每一面都要煎到，起鍋靜置。', '再煎一次，用湯匙淋奶油、裹胡椒，再靜置。', '切厚片淋醬。馬鈴薯切薄片和牛奶、鮮奶油、蒜煮軟，進烤箱烤上色。'],
+    m: ['每一面都煎到', '起鍋靜置', '湯匙淋奶油'], x: '靜置時可以去做配菜，很合「煮一桌菜」的安排。' },
+  { id: 'egg', n: '水煮蛋佐美乃滋', t: 'dish', i: ['mayo'],
+    s: ['蛋放進鍋、水淹過蛋，大火煮滾轉小火煮。', '取出輕敲，連膜一起剝殼。', '切半、配醬。'], m: ['煮蛋計時：短一點半熟、長一點全熟'], x: '台式版本：水煮蛋沙拉。' },
+  { id: 'fruitsalad', n: '香蕉蘋果綜合沙拉', t: 'dish', i: ['mayo'],
+    s: ['美乃滋和無糖優格拌勻。', '香蕉、蘋果、西洋梨切塊。', '全部拌在一起，加胡椒和荷蘭芹。'], m: ['水果切成一樣大小'], x: '台式宴客常見的水果沙拉。' },
+  { id: 'zucchini', n: '櫛瓜青椒沙拉', t: 'dish', i: ['rouille'],
+    s: ['三色迷你甜椒去蒂頭和籽、切圓圈；櫛瓜切圓片。', '撒鹽輕拌、不要弄破。', '盤子滴上醬點、擺上蔬菜。'], m: ['切圓圈', '用醬點擺盤'], x: '' },
+  { id: 'tofu', n: '奶焗豆腐', t: 'dish', i: ['hollandaise'],
+    s: ['豆腐切塊、微波去水分；生火腿低溫烤乾。', '鮮奶油加鹽煮滾，放豆腐輕輕弄碎煮熱，加火腿和胡椒。', '倒進焗烤盤，繞圈淋醬，撒剩下的火腿。', '高溫烤到表面上色。'], m: ['繞圈淋醬', '烤到金黃'], x: '作者的日法混搭料理。' },
+  { id: 'minute', n: '法式嫩烤牛排佐法式細薯條', t: 'dish', i: ['bearnaise'],
+    s: ['薄牛肋肉去油、撒鹽。', '烤網大火燒到發紅，關火後放上抹油的一面，烤幾秒轉 45 度再烤，烤出網格；翻面同樣。', '沒有烤網可用平底鍋大火快煎。', '薯條：馬鈴薯切細條，洗到水不混濁、瀝乾。', '中溫油炸，不時攪開防止黏成一團；上色就撈起、撒鹽。'],
+    m: ['轉 45 度烤網格', '炸薯條控油溫，餘熱還會上色要提前撈'], x: '台式版本：牛排配薯條。' },
+  { id: 'shrimp', n: '法式番茄烤蝦', t: 'dish', i: ['coulis', 'basil'],
+    s: ['蝦連殼縱切成半、挑腸泥，用鹽和麵粉搓洗去黏液，沖淨擦乾、撒鹽。', '羅勒切末先拌油防變色；醬加水煮滾，加羅勒和胡椒。', '蝦身撒粉抹油，肉面朝下在烤網上大火快烤。', '微微翻身就翻面烤殼，蝦身膨起、出水就起鍋。', '盤底鋪醬。'], m: ['烤的時間要短，看蝦身翻起'], x: '' },
+  { id: 'chestnut', n: '綜合菇類炒栗子', t: 'dish', i: ['champignon', 'hazel'],
+    s: ['栗子底部劃淺口（防爆裂），烤過剝皮。', '菇類切塊。', '做榛果奶油，大火炒菇到上色收汁，加栗子拌炒調味。', '培根煎兩面。', '盤底鋪熱過的蘑菇醬再盛菜。'], m: ['劃口不能切到果肉', '炒菇炒到收汁'], x: '' },
+  { id: 'cappuccino', n: '卡布奇諾綜合菇湯', t: 'dish', i: ['champignon', 'stock', 'hazel'],
+    s: ['菇類用榛果奶油大火炒到上色、水分收乾。', '蘑菇醬、水、澄清湯、奶油、鮮奶油煮滾。', '用手持調理機打到起泡。', '盛湯放上炒菇。'], m: ['打出泡沫'], x: '' },
+  { id: 'flan', n: '菇菇法式布丁', t: 'dish', i: ['champignon', 'milk'],
+    s: ['蘑菇醬和牛奶輕輕拌、不要起泡，加鮮奶油。', '全蛋和蛋黃打散拌入、過濾。', '倒進容器約九分滿，放進加熱水的淺盤，低溫隔水烤。', '左右晃動不會晃就好。也可用蒸鍋小火蒸。'], m: ['拌時不拌入空氣', '晃一晃看凝固'], x: '台式版本：茶碗蒸、蒸蛋。' },
+  { id: 'eggplant', n: '輕燉洋蔥茄子', t: 'dish', i: ['tomate', 'cheese'],
+    s: ['洋蔥和蒜切薄片，加油和水中火炒，乾了補水，炒到出甜不焦。', '茄子切半，皮面和切面劃格紋，撒鹽擦乾。', '切面朝下中大火煎，一次次補油。', '煎上色後翻面煎皮。', '洋蔥加白酒煮到酸味揮發；全部和醬、水一起稍燉，加乳酪。'], m: ['劃格紋', '茄子很吸油，要一次次補油'], x: '台式版本：番茄燉茄子。' },
+  { id: 'garlicsoup', n: '蒜香雞絲湯', t: 'dish', i: ['ail', 'milk'],
+    s: ['雞胸去皮、順紋切半、去筋（煮過的筋會變硬）。', '大量鹽水煮滾後放雞肉燙，按壓還有一點彈性就撈起放涼。', '撕成細絲，拌鹽和蒜油。', '大蒜醬、牛奶、鹽煮到喜歡的濃度，放上雞絲。'], m: ['按壓判斷熟度，不要煮老'], x: '台式版本：雞絲湯。' },
+  { id: 'vegetables', n: '香煎蔬菜', t: 'dish', i: ['balsamico'],
+    s: ['南瓜切片、櫛瓜切半、茄子切半劃格紋、洋蔥切圈、紅甜椒炭烤剝皮後切塊。', '撒鹽，擦乾出水。', '從不易熟的先下鍋，每加一樣就補一點油，兩面煎熟後吸油。', '南瓜容易碎，另外煎、彼此保持距離。', '盛盤淋醬。'], m: ['依熟度安排下鍋順序、補油'], x: '和「煮一桌菜」的安排一致。' },
+  { id: 'porkleg', n: '紅燒豬腿肉及根菜', t: 'dish', i: ['balsamico'],
+    s: ['豬肉切塊、撒鹽、拌麵粉，中溫油炸上色，用餘熱繼續熟。', '蓮藕、番薯、山藥滾刀切，素炸去水。', '全部大火煎，不要過度翻拌。', '焦色後關火，繞圈淋醬，開大火翻炒。', '香氣出來後加果乾。'], m: ['不要翻太多，讓它焦', '關火再淋醬'], x: '法國版糖醋肉，和台式家常菜最接近。' },
+  { id: 'squid', n: '烏賊芹菜沙拉', t: 'dish', i: ['ravigote'],
+    s: ['烏賊切塊；西洋芹削皮斜切。', '鹽水快速汆燙烏賊、瀝乾。', '和醬、橄欖油、鹽、荷蘭芹拌勻。'], m: ['汆燙要快，不然會硬'], x: '台式版本：涼拌小卷。' },
+  { id: 'ceviche', n: '法式檸檬醃魚', t: 'dish', i: ['roquefort'],
+    s: ['生魚片用的白肉魚切小塊。', '和檸檬汁、鹽、醬輕拌，冷藏片刻。', '配酒漬紅洋蔥。'], m: [], x: '幾乎不開火。' },
+  { id: 'redonion', n: '酒漬紅洋蔥', t: 'dish', i: ['whitewine', 'onion'],
+    s: ['紅洋蔥對半切，放進耐熱容器。', '白酒、鹽、砂糖煮滾倒入。', '放涼後冷藏一天以上。'], m: [], x: '預先做好的常備菜，隔天更好吃。' },
+  { id: 'chickenbreast', n: '香煎雞胸肉', t: 'dish', i: ['roquefortbutter'],
+    s: ['雞胸去筋切兩塊、撒鹽。', '萵苣切四等分大火煎上色、加奶油煮軟。', '雞肉皮朝下小火煎，用湯匙把起泡的奶油淋在肉上。', '按壓有彈性後翻面、關火用餘熱。', '斜切淋醬。'], m: ['不直接煎肉，用淋油加熱', '雞皮煎脆'], x: '' },
+  { id: 'bourguignon', n: '紅酒燉牛肉', t: 'dish', i: ['redwine', 'hazel'],
+    s: ['牛肉切大塊、紅酒醃一晚。', '紅酒濾出煮滾，撈掉凝固的浮沫、過濾。', '牛肉大火煎到水分蒸發、表面上色，加麵粉拌炒。', '和紅酒、水一起小火燉約三小時，水少了就補；隔天更好吃。', '另煮「酒之鏡」；取出牛肉，湯汁加酒之鏡、玉米粉水、榛果奶油收濃，淋回牛肉。'],
+    m: ['煎肉上色', '撈浮沫', '長時間控火', '收汁'], x: '剩下的湯汁就是「牛肉紅酒醬」，可以保存。一道菜用到大部分技法，可當最終挑戰。' },
+  { id: 'paysanne', n: '法式田園濃湯', t: 'dish', i: ['tomato', 'onion'],
+    s: ['番茄汆燙剝皮去籽切丁；蔬菜和培根切成小方片。', '小火炒蒜和培根出油，加洋蔥、蘿蔔、西洋芹炒到出甜。', '加高麗菜炒軟。', '加番茄、水、鹽煮滾轉中火。', '加馬鈴薯煮透、調味。'], m: ['把很多種蔬菜切成一樣大小', '依序下鍋'], x: '湯汁可留作「法式蔬菜醬汁」。台式版本：羅宋湯。' },
+  { id: 'bouillabaisse', n: '馬賽魚湯', t: 'dish', i: ['seafood', 'rouille', 'whitewine'],
+    s: ['魚去鱗、去內臟、切大塊；蝦挑腸泥。', '水、白酒、茴香酒、辣椒、洋蔥、蒜大火煮滾，放魚蓋上落蓋煮。', '加番紅花再煮。', '加蝦和抓碎的番茄，煮到蝦熟透。', '配蒜泥蛋黃醬。'], m: ['不同海鮮下鍋時間不同'], x: '湯汁可留作「法式魚醬汁」，接著做海鮮燉飯。' },
+  { id: 'paella', n: '西班牙海鮮燉飯', t: 'dish', i: ['fish'],
+    s: ['米和油小火炒到米心透明。', '加魚醬汁中火煮滾轉小火，不時拌一下防黏底。', '湯汁快收乾時轉極小火煮很久。', '鋪上馬賽魚湯的海鮮，轉中火煮出鍋巴。'], m: ['用湯匙碰鍋底檢查', '聽到啪滋啪滋聲就是鍋巴成形'], x: '台式版本：鍋巴飯。' },
+  { id: 'arroz', n: '西班牙燉飯', t: 'dish', i: ['fish'],
+    s: ['只用米和魚醬汁，做法同海鮮燉飯，不放海鮮。'], m: ['聽鍋巴聲'], x: '' },
+  { id: 'goulash', n: '匈牙利牛肉湯', t: 'dish', i: ['onion', 'tomato'],
+    s: ['牛肉切塊、撒鹽。', '大火翻煎到水分收乾、焦色。', '加洋蔥中火炒到吸飽油和風味；加紅椒粉和胡椒炒香，移到深鍋。', '平底鍋加水刮下鍋底精華，加番茄罐頭壓碎，倒進深鍋加水煮滾轉小火，撈浮沫燉兩個半小時。', '肉軟就取出，湯汁過濾收濃，配水煮馬鈴薯。'], m: ['煎肉上色', '刮鍋底', '撈浮沫、控火'], x: '湯汁可留作「牛肉紅椒醬汁」。' },
+  { id: 'beerwings', n: '阿爾薩斯風啤酒燉雞翅', t: 'dish', i: ['beer', 'onion', 'hazel'],
+    s: ['洋蔥切薄片，和奶油、水大火炒到收乾，轉中火不斷刮鍋底翻炒到焦糖色。', '雞肉撒鹽，兩面煎上色。', '全部和啤酒、水大火煮滾轉小火、撈浮沫，燉一小時。', '按壓肉軟就取出；湯汁加玉米粉水和榛果奶油收濃。'], m: ['洋蔥炒到焦糖色', '按壓判斷軟嫩，不要燉到碎散'], x: '湯汁可留作「比利時啤酒醬」。' },
+  // 燉湯留下的醬汁
+  { id: 'fish', n: '法式魚醬汁', t: 'sauce', i: ['bouillabaisse'], s: ['馬賽魚湯燉好後留下的湯汁。', '冷藏可放幾天，冷凍可保存較久，使用時再加熱。'], m: [], x: '用來做西班牙海鮮燉飯。' },
+  { id: 'vegsauce', n: '法式蔬菜醬汁', t: 'sauce', i: ['paysanne'], s: ['法式田園濃湯留下的湯汁。'], m: [], x: '' },
+  { id: 'paprika', n: '牛肉紅椒醬汁', t: 'sauce', i: ['goulash'], s: ['匈牙利牛肉湯過濾後的湯汁。'], m: [], x: '' },
+  { id: 'beersauce', n: '比利時啤酒醬', t: 'sauce', i: ['beerwings'], s: ['啤酒燉雞翅收濃後的醬汁。'], m: [], x: '' },
+  { id: 'redwinebeef', n: '牛肉紅酒醬', t: 'sauce', i: ['bourguignon'], s: ['紅酒燉牛肉剩下的湯汁。'], m: [], x: '' }
+];
+
+const byId = Object.fromEntries(D.map(d => [d.id, d]));
+D.forEach(d => { d.i = (d.i || []).filter(id => byId[id]); d.o = []; });
+D.forEach(d => d.i.forEach(p => byId[p].o.push(d.id)));
+
+// Layer = longest path from a source; raw stays in the first column.
+const minLayer = { raw: 0, base: 1, sauce: 1, dish: 2 };
+const memo = {};
+function layer(id) {
+  if (memo[id] != null) return memo[id];
+  const d = byId[id];
+  memo[id] = Math.max(minLayer[d.t], ...d.i.map(p => layer(p) + 1));
+  return memo[id];
+}
+D.forEach(d => d.L = layer(d.id));
+const L = Math.max(...D.map(d => d.L)) + 1;
+const cols = Array.from({ length: L }, (_, l) => D.filter(d => d.L === l));
+
+// Barycenter sweeps to reduce crossings.
+const pos = {};
+const setPos = () => cols.forEach(c => c.forEach((d, i) => pos[d.id] = i / Math.max(1, c.length - 1)));
+setPos();
+const avg = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
+for (let k = 0; k < 12; k++) {
+  const down = k % 2 === 0;
+  const order = down ? cols.slice(1) : cols.slice(0, -1).reverse();
+  order.forEach(c => {
+    c.forEach(d => { const b = avg((down ? d.i : d.o).map(x => pos[x])); d.b = b == null ? pos[d.id] : b; });
+    c.sort((a, b) => a.b - b.b);
+    c.forEach((d, i) => pos[d.id] = i / Math.max(1, c.length - 1));
+  });
+}
+
+const NW = 196, NH = 30, CW = 240, RH = 40, PADX = 20, PADY = 44;
+const maxRows = Math.max(...cols.map(c => c.length));
+const W = PADX * 2 + (L - 1) * CW + NW, H = PADY + maxRows * RH + 16;
+const xy = {};
+cols.forEach((c, l) => { const off = (maxRows - c.length) * RH / 2; c.forEach((d, i) => xy[d.id] = { x: PADX + l * CW, y: PADY + off + i * RH }); });
+
+const NS = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': '原料、醬汁、料理的關係圖' });
+cols.forEach((c, l) => {
+  const kinds = new Set(c.map(d => d.t));
+  const label = l === 0 ? '原料' : [...kinds].map(t => TYPES[t]).join('・');
+  const t = el('text', { x: PADX + l * CW, y: 24, class: 'colhead' }, svg); t.textContent = `第 ${l + 1} 層　${label}`;
+});
+const gE = el('g', {}, svg), gN = el('g', {}, svg);
+const edges = [];
+D.forEach(d => d.i.forEach(p => {
+  const a = xy[p], b = xy[d.id], x1 = a.x + NW, y1 = a.y + NH / 2, x2 = b.x, y2 = b.y + NH / 2, mx = (x1 + x2) / 2;
+  edges.push({ from: p, to: d.id, e: el('path', { d: `M${x1} ${y1}C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}`, class: 'edge' }, gE) });
+}));
+const nodes = {};
+D.forEach(d => {
+  const g = el('g', { class: `node ${d.t}${d.miss ? ' missing' : ''}`, transform: `translate(${xy[d.id].x} ${xy[d.id].y})`, tabindex: 0, role: 'button', 'aria-label': `${d.n}（${TYPES[d.t]}）` }, gN);
+  el('rect', { width: NW, height: NH, rx: 7 }, g);
+  const t = el('text', { x: 10, y: 19.5 }, g); t.textContent = d.n + (d.miss ? '（未收到）' : '');
+  g.addEventListener('click', () => select(d.id));
+  g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(d.id); } });
+  nodes[d.id] = g;
+});
+document.getElementById('canvas').appendChild(svg);
+
+function walk(id, key, seen) { byId[id][key].forEach(x => { if (!seen.has(x)) { seen.add(x); walk(x, key, seen); } }); return seen; }
+let selected = null;
+const hiddenTypes = new Set();
+function render() {
+  const lineage = selected ? new Set([selected, ...walk(selected, 'i', new Set()), ...walk(selected, 'o', new Set())]) : null;
+  D.forEach(d => {
+    const g = nodes[d.id];
+    g.classList.toggle('sel', d.id === selected);
+    g.classList.toggle('dim', hiddenTypes.has(d.t) || (lineage && !lineage.has(d.id)));
+  });
+  edges.forEach(x => {
+    const on = lineage && lineage.has(x.from) && lineage.has(x.to);
+    x.e.classList.toggle('on', !!on);
+    x.e.classList.toggle('dim', hiddenTypes.has(byId[x.from].t) || hiddenTypes.has(byId[x.to].t) || (lineage && !on));
+  });
+}
+const chip = id => `<button class="chip" data-go="${id}"><i style="background:var(--${byId[id].t})"></i>${byId[id].n}</button>`;
+function card(id) {
+  const d = byId[id], c = document.getElementById('card');
+  const steps = d.s && d.s.length ? `<ol>${d.s.map(s => `<li>${s}</li>`).join('')}</ol>` : `<p class="empty">${d.t === 'raw' ? '基本食材，點右邊的連結看它用在哪裡。' : '書上的做法還沒收到。'}</p>`;
+  c.innerHTML = `<span class="badge ${d.t}">${TYPES[d.t]}${d.miss ? '・做法未收到' : ''}</span><h2>${d.n}</h2>`
+    + (d.t !== 'raw' ? `<h3>做法</h3>${steps}` : steps)
+    + (d.m && d.m.length ? `<h3>手藝時刻（可做成特寫）</h3><ul>${d.m.map(s => `<li>${s}</li>`).join('')}</ul>` : '')
+    + `<h3>用到</h3>${d.i.length ? `<div class="links">${d.i.map(chip).join('')}</div>` : '<p class="empty">無</p>'}`
+    + `<h3>用在</h3>${d.o.length ? `<div class="links">${d.o.map(chip).join('')}</div>` : '<p class="empty">無</p>'}`
+    + (d.x ? `<p class="note">${d.x}</p>` : '');
+  c.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { select(b.dataset.go); scrollTo(b.dataset.go); }));
+}
+function select(id) { selected = id; card(id); render(); try { history.replaceState(null, '', '#' + id); } catch (e) {} }
+function scrollTo(id) {
+  const cv = document.getElementById('canvas'), p = xy[id], s = zoom;
+  cv.scrollTo({ left: Math.max(0, p.x * s - cv.clientWidth / 2 + NW * s / 2), top: Math.max(0, p.y * s - cv.clientHeight / 2), behavior: 'smooth' });
+}
+
+// Legend toggles which kinds are shown.
+const lg = document.getElementById('legend');
+Object.entries(TYPES).forEach(([t, name]) => {
+  const n = D.filter(d => d.t === t).length;
+  const b = document.createElement('button'); b.className = 'chip'; b.setAttribute('aria-pressed', 'true');
+  b.innerHTML = `<i style="background:var(--${t})"></i>${name} ${n}`;
+  b.addEventListener('click', () => { const on = b.getAttribute('aria-pressed') === 'true'; b.setAttribute('aria-pressed', String(!on)); on ? hiddenTypes.add(t) : hiddenTypes.delete(t); render(); });
+  lg.appendChild(b);
+});
+
+let zoom = 1;
+function setZoom(z) { zoom = Math.min(1.6, Math.max(.4, z)); svg.setAttribute('width', W * zoom); svg.setAttribute('height', H * zoom); }
+document.getElementById('zoomIn').onclick = () => setZoom(zoom + .2);
+document.getElementById('zoomOut').onclick = () => setZoom(zoom - .2);
+document.getElementById('zoomReset').onclick = () => setZoom(1);
+
+document.getElementById('q').addEventListener('input', e => {
+  const q = e.target.value.trim();
+  if (!q) return;
+  const hit = D.find(d => d.n.includes(q));
+  if (hit) { select(hit.id); scrollTo(hit.id); }
+});
+
+const start = (location.hash || '').slice(1);
+select(byId[start] ? start : 'bechamel');
+if (window.innerWidth < 700) setZoom(.8);
+requestAnimationFrame(() => scrollTo(selected));
+</script>
+</body>
+</html>
