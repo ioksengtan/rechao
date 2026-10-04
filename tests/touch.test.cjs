@@ -23,6 +23,7 @@ test('the visible title uses the current display name', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   assert.match(html, /<title>[^<]*來我家簡單吃[^<]*<\/title>/);
   assert.match(html, /<h1>來我家簡單吃<\/h1>/);
+  assert.match(html, /modal-kicker">來我家簡單吃</);
   assert.doesNotMatch(html, /熱炒開店啦/);
 });
 
