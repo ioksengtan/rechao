@@ -10,4 +10,4 @@ const server = http.createServer((req, res) => {
   if (!file.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
   fs.readFile(file, (err, data) => { if(err){res.writeHead(404).end('Not found');return;}res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store'});res.end(data); });
 });
-server.listen(Number(process.env.PORT)||4173, '127.0.0.1', () => console.log('熱炒開店啦：http://127.0.0.1:' + server.address().port));
+server.listen(Number(process.env.PORT)||4173, '127.0.0.1', () => console.log('來我家簡單吃：http://127.0.0.1:' + server.address().port));
