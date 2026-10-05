@@ -5,7 +5,8 @@ const path = require('node:path');
 const { runtime } = require('./ui-runtime.cjs');
 
 function face(ui, id) {
-  const station = ui.game.stations.find(s => s.id === id);
+  const station = require('../game-core.js').getInteractiveStations(ui.game.stations).find(s => s.id === id || s.members?.includes(id));
+  ui.pendingSupply = station.type==='supplyGroup'?id:null;
   ui.player.x = station.x * 60 + 30;
   ui.player.y = station.y * 60 + 30 + 70;
   ui.player.dx = 0;
@@ -17,6 +18,7 @@ function face(ui, id) {
 function tap(ui, id, pointerId = 1) {
   ui.pointer(id, 'pointerdown', pointerId);
   ui.pointer(id, 'pointerup', pointerId);
+  if(id==='touch-e'&&ui.pendingSupply){ui.nodes['supply-options'].onclick({target:{closest:()=>({dataset:{supply:ui.pendingSupply}})}});ui.nodes['quantity-confirm'].onclick();ui.pendingSupply=null;}
 }
 
 test('page ships touch controls beside the keyboard and career mode', () => {
@@ -89,6 +91,8 @@ test('direction pad moves, E taps once, and holding F chops, mixes, cooks and cl
   face(ui, 'greens');
   const down = ui.pointer('touch-e', 'pointerdown');
   assert.equal(down.defaultPrevented, true);
+  assert.equal(ui.game.held,null);
+  ui.nodes['supply-options'].onclick({target:{closest:()=>({dataset:{supply:'greens'}})}});ui.nodes['quantity-confirm'].onclick();ui.pendingSupply=null;
   assert.equal(ui.game.held.id, 'greens');
   const toast = ui.nodes.toast.textContent;
   assert.match(toast, /青菜/);

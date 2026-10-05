@@ -31,3 +31,51 @@ test('partial chopping persists when stepping away, held objects prevent choppin
 test('incomplete recipe can be cleared without trapping the station',()=>{
   const g=new Kitchen();g.interact('egg');g.interact('wok');g.action('wok');advance(g,2.01,'wok');assert.equal(g.wok.state,'empty');assert.equal(g.wasted,1);
 });
+
+ test('raw supplies can be returned without waste, but different or prepared ingredients stay held',()=>{
+  const g=new Kitchen();g.interact('greens');g.interact('greens');assert.equal(g.held,null);assert.equal(g.wasted,0);
+  g.held={id:'greens',count:3};g.interact('greens');assert.equal(g.held,null);
+  g.held={id:'choppedGreens',count:2};g.interact('greens');assert.deepEqual(g.held,{id:'choppedGreens',count:2});
+  g.held={id:'egg'};g.interact('greens');assert.equal(g.held.id,'egg');
+ });
+ test('extra island counters store and swap stacks and plates in service and lessons',()=>{
+  for(const level of ['opening','prep-school','sauce-school','juice-school']){
+    const g=new Kitchen(()=>.5,level);
+    for(const id of ['counter2','counter3']){
+      g.held={id:'choppedGreens',count:3};g.interact(id);assert.equal(g.held,null);
+      g.held={id:'plate'};g.interact(id);assert.deepEqual(g.held,{id:'choppedGreens',count:3});
+      g.held=null;g.interact(id);assert.equal(g.held.id,'plate');
+    }
+  }
+ });
+
+test('counter stacks matching ingredients to ten, preserves overflow and retrieves the complete stack',()=>{
+ const g=new Kitchen();g.held={id:'choppedGreens'};g.interact('counter');g.held={id:'choppedGreens'};g.interact('counter');
+ const s=g.stations.find(s=>s.id==='counter');assert.equal(s.item.count,2);assert.equal(g.held,null);
+ g.held={id:'choppedGreens',count:7};g.interact('counter');assert.equal(s.item.count,9);
+ g.held={id:'choppedGreens',count:3};g.interact('counter');assert.equal(s.item.count,10);assert.equal(g.held.count,2);
+ g.interact('counter');assert.equal(s.item.count,10);assert.equal(g.held.count,2);
+ g.interact('counter2');g.interact('counter');assert.equal(g.held.count,10);assert.equal(s.item,null);
+ g.interact('wok');assert.equal(g.held.count,7);assert.equal(g.wok.ingredients.length,3);
+});
+test('bulk raw ingredients on counters do not bypass the three-portion chopping limit',()=>{
+ const g=new Kitchen();g.held={id:'greens',count:10};g.interact('counter');g.interact('counter');g.interact('board');
+ const b=g.stations.find(s=>s.id==='board');assert.equal(b.item.count,3);assert.equal(g.held.count,7);
+ g.interact('board');assert.equal(b.item.count,3);assert.equal(g.held.count,7);
+});
+test('counter keeps dish quality and measured sources separate instead of merging',()=>{
+ const g=new Kitchen();const s=g.stations.find(s=>s.id==='counter');
+ for(const pair of [[{id:'greensDish',quality:1},{id:'greensDish',quality:.8}],[{id:'sauce',bottle:true},{id:'sauce',bottle:true}],[{id:'lemon',source:true},{id:'lemon',source:true}],[{id:'soyPortion'},{id:'soyPortion'}]]){
+  s.item=pair[0];g.held=pair[1];g.interact('counter');assert.equal(g.held,pair[0]);assert.equal(s.item,pair[1]);
+ }
+});
+
+test('all levels share the same ingredient inventory, miso is refrigerated and stools are removed',()=>{
+ const c=require('../game-core.js');const reference=c.getInteractiveStations(new c.Kitchen().stations).filter(s=>s.type==='supplyGroup').map(s=>[s.id,s.members]);
+ for(const level of c.LEVELS)assert.deepEqual(c.getInteractiveStations(new c.Kitchen(()=>.5,level.id).stations).filter(s=>s.type==='supplyGroup').map(s=>[s.id,s.members]),reference);
+ assert.ok(reference.find(([id])=>id==='fridge')[1].includes('miso'));assert.deepEqual(c.ROOM_LAYOUT.stools,[]);
+});
+test('quantity pickup respects limits and keeps large batches intact',()=>{
+ const g=new Kitchen();g.takeSupply('greens',10);assert.equal(g.held.count,10);g.interact('board');assert.equal(g.held.count,7);assert.equal(g.stations.find(s=>s.id==='board').item.count,3);
+ g.interact('greens');assert.equal(g.held,null);for(const n of [0,11,1.5,NaN]){g.takeSupply('greens',n);assert.equal(g.held,null);}
+});

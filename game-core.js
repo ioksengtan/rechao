@@ -16,6 +16,8 @@
     beefDish: { name: '蔥爆牛肉', kind: 'dish', recipe: 'beef' }, chickenDish: { name: '三杯雞', kind: 'dish', recipe: 'chicken' },
     onionEggDish: { name: '蔥花蛋', kind: 'dish', recipe: 'onionEgg' }
   };
+  const COUNTER_CAPACITY = 10;
+  const canStack = (a, b) => !!(a && b && a.id === b.id && ITEMS[a.id] && !['plate', 'dish', 'juice'].includes(ITEMS[a.id].kind) && !ITEMS[a.id].portion && !a.bottle && !b.bottle && !a.source && !b.source && !a.portion && !b.portion);
   const RECIPES = {
     greens: { name: '清炒青菜', ingredients: ['choppedGreens'], cookTime: 5, price: 80, patience: 75, dish: 'greensDish' },
     rice: { name: '黃金蛋炒飯', ingredients: ['choppedScallion', 'egg', 'rice'], cookTime: 7, price: 120, patience: 90, dish: 'riceDish' },
@@ -39,7 +41,7 @@
     menu: ['greens', 'rice'], stations: ['greens', 'scallion', 'board', 'counter', 'serve', 'trash'], goals: [{ id: 'choppedGreens', count: 3 }, { id: 'choppedScallion', count: 2 }],
     card: '不限時 · 切料與批次處理', timing: '不限時 · 無客人催單 · 完成清單即可過關',
     toast: '阿明：先 E 拿青菜，放砧板後空手按住 F。切好送到右側驗收檯！',
-    steps: '① E 拿青菜或蔥，E 放上砧板。可重複加入同種食材，最多 3 份。<br>② 空手按住 F 切好，再按 E 整批拿起。<br>③ 到右側驗收檯按 E 交付。備料檯可以暫存或交換物品。',
+    steps: '① E 拿青菜或蔥，E 放上砧板。可重複加入同種食材，最多 3 份。<br>② 空手按住 F 切好，再按 E 整批拿起。<br>③ 到右側驗收檯按 E 交付。備料檯同種食材可合併至 10 份，不同物品可交換。',
     tip: '同種食材可一起切，最多 3 份。按 E 交付時只收需要的份數，多的留在手上。',
     phaseLabel: '備料練習', phaseNote: '阿明：不趕時間，先認識食材與砧板。', ordersTitle: '備料清單', ordersSubtitle: '切好後交到右側驗收檯，不需要盤子。',
     resultTitle: '備料課完成', resultMessage: '阿明：食材都備好了！接下來可以挑戰第一晚開張。',
@@ -82,31 +84,64 @@
   }));
   LEVELS.push({ id: 'lunch', course: 'service', name: '午休小局', subtitle: '通勤一局，十分鐘內打烊', description: '菜單跟第一晚一樣，但時間更短。適合手機上快速打一局。', menu: ['greens', 'rice'], woks: 1, prepTime: 10, serviceTime: 90, closingTime: 30, maxOrders: 2, orderInterval: 14, plateCount: 4, stars: [80, 200, 450], firstOrders: ['greens', 'rice'] });
   LEVELS.push({ id: 'afternoon', course: 'service', name: '午後來一杯', subtitle: '飲料上桌，蔥花蛋也要', description: '練習把果汁和醬油炒菜一起出。青菜救急，蔥花蛋要用醬油，兩種冰飲在果汁調配台調。', menu: ['greens', 'onionEgg', 'lemonJuice', 'plumJuice'], woks: 1, prepTime: 12, serviceTime: 100, closingTime: 30, maxOrders: 2, orderInterval: 15, plateCount: 4, stars: [100, 280, 520], firstOrders: ['onionEgg', 'lemonJuice'] });
+
+  // Spoon counts below are simplified game recipes, not cooking instructions.
+  const SAUCE_RECIPES = {
+    sweetChili: {name:'台式甜辣醬',parts:{ketchup:2,sugar:1,vinegar:1,chili:1},note:'番茄酸甜、微辣；搭配蘿蔔糕、炸黑輪。'},
+    haishan: {name:'海山醬',parts:{miso:2,sugar:1,ketchup:2,chili:1},note:'味噌發酵香、甜甜微辣；搭配蚵仔煎、肉圓。'},
+    fiveFlavor: {name:'五味醬',parts:{ketchup:2,chili:1,sugar:1,vinegar:1,soy:1,choppedScallion:1,choppedGinger:1,choppedGarlic:1},note:'酸甜鹹辣與辛香料；搭配川燙中卷、蝦子。'}
+  };
+  Object.assign(ITEMS, {
+    ketchup:{name:'番茄醬',kind:'sauce'}, sugar:{name:'糖',kind:'syrup'}, vinegar:{name:'醋',kind:'soy'}, chili:{name:'辣椒醬',kind:'sauce'}, miso:{name:'味噌',kind:'sauce'},
+    ginger:{name:'薑',kind:'scallion',processed:'choppedGinger'},choppedGinger:{name:'薑末',kind:'scallion',chopped:true},
+    garlic:{name:'蒜',kind:'scallion',processed:'choppedGarlic'},choppedGarlic:{name:'蒜末',kind:'scallion',chopped:true}
+  });
+  const sauceSources = recipe => Object.keys(recipe.parts).map(id=>({choppedScallion:'scallion',choppedGinger:'ginger',choppedGarlic:'garlic'}[id]||id));
+  for(const [key,recipe] of Object.entries(SAUCE_RECIPES)) {
+    ITEMS[key]={name:recipe.name,kind:'mixedSauce',portion:true};
+    const choppedSources=sauceSources(recipe).filter(id=>ITEMS[id].processed).map(id=>ITEMS[id].name);
+    const prep=choppedSources.length ? choppedSources.join('、')+'先放砧板按住 F 切碎；' : '';
+    const formula=Object.entries(recipe.parts).map(([id,n])=>ITEMS[id].name+' '+n+' 份').join('、');
+    LEVELS.push(lesson({id:key+'-school',course:'sauces',name:recipe.name+'調製課',subtitle:recipe.note,measure:'sauceMix',sauceRecipe:key,
+      stations:[...sauceSources(recipe),'board','counter','sauce-bowl','serve','trash'],goals:[{id:key,count:1}],
+      description:'阿明：從基本原料調出'+recipe.name+'。'+formula+'。',card:'不限時 · 原料配比與攪拌',timing:'不限時 · 簡化遊戲配方',toast:prep+'每按一次 E 加 1 份，份量齊了空手按住 F 攪拌。',
+      steps:'① 簡化遊戲配方：'+formula+'。<br>② '+prep+'拿原料到調醬碗按 E，一次加 1 份。<br>③ 放下手中物品，空手按住 F 攪拌 2 秒，E 拿起成品送去驗收。',
+      tip:recipe.note+' 加錯或過量，空手到廚餘桶按 E 清空調醬碗。這是遊戲配方，省略實際烹調程序。',
+      phaseLabel:'調醬練習',phaseNote:'依清單加入原料，空手按住 F 攪拌。',ordersTitle:'調醬清單',resultTitle:recipe.name+'課完成',resultMessage:'阿明：原料配比與攪拌都完成了！',reject:'請交調製完成的'+recipe.name+'，原料不能直接驗收。'}));
+  }
+  // Keep the old lesson ID for existing saves; it is no longer in the course menu.
+  LEVELS.find(l=>l.id==='sauce-school').course='archived';
+  const sauceMixLines = (level,bowl) => Object.entries(SAUCE_RECIPES[level.sauceRecipe].parts).map(([id,n])=>ITEMS[id].name+' '+(bowl.mix[id]||0)+' / '+n+' 份');
+  const sauceMixReady = (level,bowl) => Object.entries(SAUCE_RECIPES[level.sauceRecipe].parts).every(([id,n])=>bowl.mix[id]===n) && Object.keys(bowl.mix).every(id=>id in SAUCE_RECIPES[level.sauceRecipe].parts);
+
   const STATIONS = [
-    { id: 'greens', type: 'supply', supply: 'greens', x: 1, y: 1, name: '青菜箱' },
-    { id: 'egg', type: 'supply', supply: 'egg', x: 3, y: 1, name: '雞蛋箱' },
-    { id: 'scallion', type: 'supply', supply: 'scallion', x: 5, y: 1, name: '青蔥箱' },
-    { id: 'rice', type: 'supply', supply: 'rice', x: 7, y: 1, name: '飯鍋' },
-    { id: 'beef', type: 'supply', supply: 'beef', x: 9, y: 1, name: '牛肉箱' },
-    { id: 'chicken', type: 'supply', supply: 'chicken', x: 11, y: 1, name: '雞肉箱' },
-    { id: 'basil', type: 'supply', supply: 'basil', x: 13, y: 1, name: '九層塔' },
-    { id: 'sauce', type: 'supply', supply: 'sauce', x: 14, y: 3, name: '三杯醬' },
-    { id: 'soy', type: 'supply', supply: 'soy', x: 12, y: 3, name: '醬油', training: true },
-    { id: 'lemon', type: 'supply', supply: 'lemon', x: 1, y: 1, name: '檸檬片', training: true },
-    { id: 'syrup', type: 'supply', supply: 'syrup', x: 3, y: 1, name: '糖漿', training: true },
-    { id: 'ice', type: 'supply', supply: 'ice', x: 5, y: 1, name: '冰塊', training: true },
-    { id: 'plum', type: 'supply', supply: 'plum', x: 9, y: 1, name: '脆梅', training: true },
-    { id: 'juice-bar', type: 'juice', x: 4, y: 4, name: '果汁調配台', training: true },
-    { id: 'board', type: 'board', x: 4, y: 4, name: '切料砧板' },
-    { id: 'board2', type: 'board', x: 4, y: 6, name: '第二砧板', advanced: true },
-    { id: 'counter', type: 'counter', x: 7, y: 4, name: '備料檯' },
-    { id: 'counter2', type: 'counter', x: 1, y: 4, name: '備料檯 2', advanced: true },
-    { id: 'wok', type: 'wok', x: 10, y: 4, name: '一號炒爐' },
-    { id: 'wok2', type: 'wok', x: 12, y: 4, name: '二號炒爐', advanced: true },
-    { id: 'plates', type: 'plates', x: 10, y: 7, name: '餐盤架' },
-    { id: 'serve', type: 'serve', x: 14, y: 6, name: '出餐口' },
-    { id: 'trash', type: 'trash', x: 7, y: 8, name: '廚餘桶' }
+    { id: 'greens', type: 'supply', supply: 'greens', x: 1.5, y: 1, name: '青菜箱' },
+    { id: 'egg', type: 'supply', supply: 'egg', x: 5, y: 1, name: '雞蛋箱' },
+    { id: 'scallion', type: 'supply', supply: 'scallion', x: 3, y: 1, name: '青蔥箱' },
+    { id: 'rice', type: 'supply', supply: 'rice', x: 1, y: 7, name: '飯鍋' },
+    { id: 'beef', type: 'supply', supply: 'beef', x: 14.5, y: 1, name: '牛肉箱' },
+    { id: 'chicken', type: 'supply', supply: 'chicken', x: 14.5, y: 3, name: '雞肉箱' },
+    { id: 'basil', type: 'supply', supply: 'basil', x: 1, y: 5, name: '九層塔' },
+    { id: 'sauce', type: 'supply', supply: 'sauce', x: 1, y: 3, name: '三杯醬' },
+    { id: 'soy', type: 'supply', supply: 'soy', x: 9, y: 1, name: '醬油', training: true },
+    { id: 'lemon', type: 'supply', supply: 'lemon', x: 1, y: 5, name: '檸檬片', training: true },
+    { id: 'syrup', type: 'supply', supply: 'syrup', x: 1, y: 7, name: '糖漿', training: true },
+    { id: 'ice', type: 'supply', supply: 'ice', x: 14.5, y: 1, name: '冰塊', training: true },
+    { id: 'plum', type: 'supply', supply: 'plum', x: 14.5, y: 3, name: '脆梅', training: true },
+    { id: 'juice-bar', type: 'juice', x: 10, y: 5, name: '果汁調配台', training: true },
+    { id: 'board', type: 'board', x: 6, y: 5, name: '切料砧板' },
+    { id: 'board2', type: 'board', x: 10, y: 5, name: '第二砧板', advanced: true },
+    { id: 'counter', type: 'counter', x: 8, y: 5, name: '備料檯' },
+    { id: 'counter2', type: 'counter', x: 10, y: 7, name: '備料檯 2' },
+    { id: 'counter3', type: 'counter', x: 8, y: 7, name: '備料檯 3' },
+    { id: 'wok', type: 'wok', x: 7, y: 1, name: '一號炒爐' },
+    { id: 'wok2', type: 'wok', x: 9, y: 1, name: '二號炒爐', advanced: true },
+    { id: 'plates', type: 'plates', x: 6, y: 7, name: '餐盤架' },
+    { id: 'serve', type: 'serve', x: 15, y: 6, name: '出餐口' },
+    { id: 'trash', type: 'trash', x: 3, y: 8.5, name: '廚餘桶' }
   ];
+  STATIONS.push({id:'sauce-bowl',type:'sauceMix',x:10,y:5,name:'調醬碗',training:true});
+  for(const id of ['ketchup','sugar','vinegar','chili','miso','ginger','garlic']) STATIONS.push({id,type:'supply',supply:id,x:1,y:1,name:ITEMS[id].name,training:true});
   const portionsFor = ingredients => Math.max(0, ...ingredients.map(id => ingredients.filter(i => i === id).length));
   const wokMenu = menu => menu.filter(key => RECIPES[key]);
   function recipeFor(ingredients, menu = Object.keys(RECIPES)) {
@@ -196,13 +231,18 @@
   }
   const emptyWok = () => ({ state: 'empty', ingredients: [], portions: 0, remaining: 0, elapsed: 0, recipe: null, flipped: false, readyTime: 0, clearProgress: 0 });
   // Lesson juice crates share the top row, and that lesson's juice bar stands where the cutting board is.
-  // A service night that needs both keeps the board at (4, 4) and moves juice gear onto spots this menu leaves empty.
-  const SERVICE_JUICE_LAYOUT = {
-    lemon: { x: 7, y: 1 }, syrup: { x: 9, y: 1 }, ice: { x: 11, y: 1 }, plum: { x: 13, y: 1 }, 'juice-bar': { x: 4, y: 6 }
+  // Furniture footprints shared by drawing and movement, in simulation pixels.
+  const ROOM_LAYOUT = {
+    back: { x: 45, y: 45, w: 710, h: 85 },
+    left: { x: 45, y: 130, w: 95, h: 420 },
+    fridge: { x: 840, y: 10, w: 120, h: 120 },
+    island: { x: 345, y: 285, w: 330, h: 175 },
+    stools: []
   };
   function getStations(level) {
-    if (level.mode === 'training') return STATIONS.filter(s => level.stations.includes(s.id)).map(s => ({
+    if (level.mode === 'training') return STATIONS.filter(s => s.type === 'supply' || level.stations.includes(s.id) || s.type === 'counter' && s.id !== 'counter').map(s => ({
       ...s,
+      ...(s.type === 'sauceMix' ? {mix:{}} : {}),
       name: s.id === 'serve' ? '驗收檯' : level.measure === 'sauce' && s.id === 'counter' ? '量杯區' : s.name,
       item: null, progress: 0,
       ...(s.type === 'juice' ? (level.measure === 'juice' ? { ingredients: [], mix: emptyJuiceMix(), pours: [] } : { ingredients: [] }) : {}),
@@ -213,9 +253,19 @@
     return STATIONS.filter(s => {
       if (s.advanced && !(level.woks > 1)) return false;
       if (s.type === 'juice') return needsJuice;
-      if (s.type === 'supply') return ingredients.has(s.supply) || ingredients.has(ITEMS[s.supply].processed);
+      if (s.type === 'supply') return true;
       return !s.training;
-    }).map(s => ({ ...s, ...(needsJuice && SERVICE_JUICE_LAYOUT[s.id] || {}), item: null, progress: 0, ...(s.type === 'juice' ? { ingredients: [] } : {}) }));
+    }).map(s => ({ ...s, item: null, progress: 0, ...(s.type === 'juice' ? { ingredients: [] } : {}) }));
+  }
+  function getInteractiveStations(stations) {
+    const groups={seasoning:{id:'seasoning',type:'supplyGroup',name:'調味醬轉盤',x:3,y:1,members:[]},fridge:{id:'fridge',type:'supplyGroup',name:'冰箱',x:14.5,y:2,members:[]},pantry:{id:'pantry',type:'supplyGroup',name:'開放層架',x:1,y:5,members:[]}};
+    const rest=[];
+    for(const s of stations){
+      if(s.type!=='supply'){rest.push(s);continue;}
+      const key=['beef','chicken','egg','ice','plum','lemon','miso'].includes(s.supply)?'fridge':['sauce','soy','ketchup','vinegar','chili','syrup'].includes(s.supply)?'seasoning':'pantry';
+      groups[key].members.push(s.id);
+    }
+    return [...rest,...Object.values(groups).filter(g=>g.members.length)];
   }
   function starCount(revenue, level) { return level.stars.filter(threshold => revenue >= threshold).length; }
   class Kitchen {
@@ -248,25 +298,46 @@
       const patience = Math.round(offer.patience * this.mods.patience);
       this.orders.push({ id: this.nextId++, table: this.spawnIndex++ % 3 + 1, recipe: key, remaining: patience, total: patience });
     }
+    takeSupply(id, count=1) {
+      if(this.held || this.paused || this.phase==='ended' || !Number.isInteger(count) || count<1 || count>10)return;
+      const s=this.stations.find(s=>s.id===id&&s.type==='supply');if(!s)return;
+      this.interact(id);
+      if(this.held && !this.held.source && !this.held.bottle && count>1)this.held.count=count;
+    }
     interact(id) {
       if (this.paused || this.phase === 'ended') return;
       const s = this.stations.find(s => s.id === id); if (!s) return;
       if (s.type === 'supply') {
         if (this.held?.bottle && this.held.id === s.supply) { this.held = null; this.message('瓶子放回去了。'); return; }
-        if (this.held?.source && this.held.id === s.supply) { this.held = null; this.message(ITEMS[s.supply].name + '放回去了。'); return; }
+        if (this.held?.id === s.supply && !this.held.portion) { this.held = null; this.message(ITEMS[s.supply].name + '放回去了。'); return; }
         if (this.held) return this.message('先把手上的東西放下。');
         const held = { id: s.supply };
         if (this.level.measure === 'juice' && JUICE_PARTS.includes(s.supply)) held.source = true;
         if (this.level.measure === 'sauce' && SAUCE_SPOONS[s.supply]) held.bottle = true;
         this.held = held;
         this.message(held.bottle ? '拿到了' + ITEMS[s.supply].name + '瓶子，到量杯區量。' : held.source ? '拿到了' + ITEMS[s.supply].name + '，到果汁台按 E 倒。' : '拿到了' + ITEMS[s.supply].name);
-      } else if (s.type === 'counter' && this.level.measure === 'sauce') this.interactMeasure(s);
+      } else if (s.type === 'sauceMix') this.interactSauceBowl(s);
+      else if (s.id === 'counter' && this.level.measure === 'sauce') this.interactMeasure(s);
       else if (s.type === 'board' || s.type === 'counter') {
         if (!this.held && s.item) { this.held = s.item; s.item = null; s.progress = 0; this.message('拿起' + ITEMS[this.held.id].name); }
         else if (this.held && !s.item) {
           if (s.type === 'board' && !ITEMS[this.held.id].processed && !ITEMS[this.held.id].chopped) return this.message(this.level.mode === 'training' && ITEMS[this.held.id].boardMessage || '砧板只放需要切的蔬菜或肉類，其他物品可放備料檯。');
-          s.item = this.held; this.held = null; s.progress = 0; this.message(s.type === 'board' ? '放上砧板，空手按住 F 切料。' : '放到備料檯了。');
+          const limit = s.type === 'board' ? 3 : COUNTER_CAPACITY;
+          const count = this.held.count || 1, moved = Math.min(count, limit);
+          s.item = { ...this.held, ...(count > 1 ? { count: moved } : {}) };
+          if (count > moved) this.held.count = count - moved; else this.held = null;
+          s.progress = 0;
+          this.message(this.held ? `放下 ${moved} 份，剩餘 ${count - moved} 份留在手上。` : s.type === 'board' ? '放上砧板，空手按住 F 切料。' : '放到備料檯了。');
         } else if (this.held && s.item && s.type === 'counter') {
+          if (canStack(this.held, s.item)) {
+            const stored = s.item.count || 1, held = this.held.count || 1;
+            const moved = Math.min(held, Math.max(0, COUNTER_CAPACITY - stored));
+            if (!moved) return this.message(`備料檯已滿 ${COUNTER_CAPACITY} 份，食材留在手上。`);
+            s.item.count = stored + moved;
+            if (held > moved) this.held.count = held - moved; else this.held = null;
+            this.message(`備料檯共 ${s.item.count} 份。` + (this.held ? `剩餘 ${this.held.count} 份留在手上。` : ''));
+            return;
+          }
           [this.held, s.item] = [s.item, this.held];
           this.message('已交換手上與備料檯的物品。');
         } else if (this.held && s.item && s.type === 'board' && this.held.id === s.item.id && ITEMS[s.item.id].processed) {
@@ -304,11 +375,15 @@
       if (!this.held) return this.message(w.ingredients.length ? '材料備齊後按 F 開火；不需要的材料可按住 F 清空。' : '把切好的食材放進鍋裡。');
       if (!canAdd(w.ingredients, this.held.id, this.level.menu)) return this.message('同鍋最多 3 份同一道菜；食材須符合配方，蔬菜和肉要先切好。');
       const proposed = [...w.ingredients];
-      for (let i = 0; i < (this.held.count || 1); i++) {
+      const heldCount = this.held.count || 1;
+      const transferCount = heldCount > 3 ? Math.min(heldCount, 3 - w.ingredients.filter(item => item === this.held.id).length) : heldCount;
+      for (let i = 0; i < transferCount; i++) {
         if (!canAdd(proposed, this.held.id, this.level.menu)) return this.message('整批下鍋會超過 3 份，請放到另一口鍋或備料檯。');
         proposed.push(this.held.id);
       }
-      w.ingredients = proposed; this.held = null; w.state = 'loading'; w.clearProgress = 0;
+      w.ingredients = proposed;
+      if (heldCount > transferCount) this.held.count = heldCount - transferCount; else this.held = null;
+      w.state = 'loading'; w.clearProgress = 0;
       this.message(recipeFor(w.ingredients, this.level.menu) ? `材料齊了，共 ${portionsFor(w.ingredients)} 份！F 開火，或繼續加料至 3 份。` : '已下料，可做：' + this.missingIngredients(id));
     }
     missingIngredients(id = 'wok') {
@@ -320,7 +395,20 @@
       }).join(' 或 ');
     }
     clearWok(id = 'wok') { if (this.woks[id]) this.woks[id] = emptyWok(); }
+    interactSauceBowl(s) {
+      if (s.item) { if(this.held) return this.message('先放下手上物品，再拿成品。'); this.held=s.item;s.item=null;return; }
+      if(!this.held) return this.message('依配方加入原料，齊了空手按住 F 攪拌。');
+      const id=this.held.id,recipe=SAUCE_RECIPES[this.level.sauceRecipe];
+      if(!(id in recipe.parts)) return this.message(ITEMS[id].processed ? '請先把辛香料切碎。' : '這不是這款醬需要的原料。');
+      s.mix[id]=(s.mix[id]||0)+1;s.progress=0;
+      if((this.held.count||1)>1)this.held.count--;else this.held=null;
+      this.message(s.mix[id]>recipe.parts[id]?'這項原料過量了，空手到廚餘桶清空調醬碗。':'已加入 1 份'+ITEMS[id].name+'。');
+    }
     clearTrainingMeasure() {
+      if(this.level.measure==='sauceMix') {
+        const bowl=this.stations.find(s=>s.type==='sauceMix');
+        if(Object.keys(bowl.mix).length||bowl.item){bowl.mix={};bowl.item=null;bowl.progress=0;this.wasted++;this.message('調醬碗已清空。');return true;}
+      }
       if (this.level.measure === 'sauce') {
         const cup = this.stations.find(st => st.id === 'counter');
         if (cup?.spoons > 0) { cup.spoons = 0; cup.sauceId = null; this.wasted++; this.message('量杯倒掉了，重新量。'); return true; }
@@ -462,6 +550,11 @@
         board.progress += dt;
         if (board.progress >= chopDuration(board.item, this.mods)) { board.item.id = ITEMS[board.item.id].processed; board.progress = chopDuration(board.item, this.mods); this.message('切好了！按 E 拿起食材。', 'done'); }
       }
+      const bowl = this.stations.find(s=>s.type==='sauceMix' && s.id===workingStation);
+      if(bowl && !this.held && !bowl.item && sauceMixReady(this.level,bowl)) {
+        bowl.progress+=dt;
+        if(bowl.progress>=MIX_TIME){bowl.item={id:this.level.sauceRecipe};bowl.mix={};bowl.progress=0;this.message('調好了！按 E 拿起成品送去驗收。','done');}
+      }
       const juicer = this.stations.find(s => s.type === 'juice' && s.id === workingStation);
       if (juicer && !this.held && !juicer.item) {
         const id = this.level.measure === 'juice' ? measuredJuiceMatch(juicer.mix) : juiceRecipe(juicer.ingredients);
@@ -504,7 +597,7 @@
     finish() { if (this.phase === 'ended') return; this.expired += this.orders.length; this.orders = []; this.phase = 'ended'; this.time = 0; }
   }
   const VERSION = '0.15.0';
-  const api = { VERSION, Kitchen, ITEMS, RECIPES, DRINKS, JUICE_RECIPES, TRAINING_JUICE, SAUCE_SPOONS, SAUCE_CC, SYRUP_STEP_CC, SYRUP_TOLERANCE_CC, menuOffer, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor, portionsFor, cookDuration, chopDuration, MIX_TIME, juiceRecipe, measuredJuiceMatch, juiceOvershot, juiceMeasureLines, juiceTargetText, sauceMeasureLine, CHEF_STATS, getChefModifiers, flipWindowText };
+  const api = { getInteractiveStations, SAUCE_RECIPES, sauceMixLines, sauceMixReady, COUNTER_CAPACITY, canStack, VERSION, Kitchen, ITEMS, RECIPES, DRINKS, JUICE_RECIPES, TRAINING_JUICE, SAUCE_SPOONS, SAUCE_CC, SYRUP_STEP_CC, SYRUP_TOLERANCE_CC, menuOffer, ROOM_LAYOUT, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor, portionsFor, cookDuration, chopDuration, MIX_TIME, juiceRecipe, measuredJuiceMatch, juiceOvershot, juiceMeasureLines, juiceTargetText, sauceMeasureLine, CHEF_STATS, getChefModifiers, flipWindowText };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HotStirFry = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -272,3 +272,48 @@ test('career reports name the quiz, the trainee stats and the week', async () =>
   assert.match(copied, /模式：成長模式小考（刀工小考）/); assert.match(copied, /主廚：Alex · 刀工小考 刀工 20／火候 0/);
   assert.match(copied, /成長進度：第 3 週/); assert.match(copied, /完成時間：未完成/); assert.match(copied, /星數：0 \/ 3/);
 });
+
+test('sauce category offers three recipe lessons and shows ingredient quantities',()=>{
+ const ui=runtime();ui.nodes['course-tabs'].onclick({target:{closest:()=>({dataset:{course:'sauces'}})}});
+ assert.match(ui.nodes['level-list'].innerHTML,/台式甜辣醬/);assert.match(ui.nodes['level-list'].innerHTML,/海山醬/);assert.match(ui.nodes['level-list'].innerHTML,/五味醬/);
+ assert.doesNotMatch(ui.nodes['level-list'].innerHTML,/醬料入味課/);
+ ui.nodes.start.onclick();ui.frame();assert.equal(ui.game.level.id,'sweetChili-school');assert.match(ui.nodes['wok-status'].innerHTML,/番茄醬 0 \/ 2/);
+});
+
+test('storage opens a second-level picker, pauses time, returns ingredients and cancels cleanly',()=>{
+ const ui=runtime();ui.select('opening');ui.nodes.start.onclick();ui.frame();
+ const faceGroup=id=>{const s=core.getInteractiveStations(ui.game.stations).find(s=>s.id===id);ui.player.x=s.x*60+30;ui.player.y=s.y*60+100;ui.player.dx=0;ui.player.dy=-1;ui.frame();};
+ faceGroup('pantry');ui.press('e');ui.release('e');assert.equal(ui.nodes['supply-picker'].classList.contains('hidden'),false);assert.equal(ui.game.held,null);
+ const time=ui.game.clock;ui.frames(20);assert.equal(ui.game.clock,time);
+ ui.nodes['supply-options'].onclick({target:{closest:()=>({dataset:{supply:'greens'}})}});ui.nodes['quantity-confirm'].onclick();assert.equal(ui.game.held.id,'greens');assert.equal(ui.nodes['supply-picker'].classList.contains('hidden'),true);
+ ui.press('e');ui.release('e');ui.nodes['supply-options'].onclick({target:{closest:()=>({dataset:{supply:'greens'}})}});assert.equal(ui.game.held,null);
+ faceGroup('fridge');ui.press('e');ui.release('e');assert.match(ui.nodes['supply-options'].innerHTML,/雞蛋/);assert.match(ui.nodes['supply-options'].innerHTML,/牛肉/);
+ ui.press('Escape');ui.release('Escape');assert.equal(ui.nodes['supply-picker'].classList.contains('hidden'),true);assert.equal(ui.game.held,null);ui.frame();assert.ok(ui.game.clock>time);
+});
+
+test('storage keyboard selects ingredients, shows icons, skips unavailable choices and returns items',()=>{
+ const ui=runtime();ui.select('opening');ui.nodes.start.onclick();ui.frame();
+ const s=core.getInteractiveStations(ui.game.stations).find(s=>s.id==='pantry');ui.player.x=s.x*60+30;ui.player.y=s.y*60+100;ui.player.dx=0;ui.player.dy=-1;ui.frame();
+ const key=k=>{ui.press(k);ui.release(k);};key('e');assert.match(ui.nodes['supply-options'].innerHTML,/supply-icon/);assert.match(ui.nodes['supply-options'].innerHTML,/🥬/);
+ key('ArrowRight');key('Enter');key('Enter');assert.equal(ui.game.held.id,'scallion');
+ key('e');key('ArrowDown');key('e');assert.equal(ui.game.held,null);
+ key('e');key('ArrowDown');key(' ');key('Enter');assert.equal(ui.game.held.id,'rice');
+ key('e');key('Tab');key('Enter');assert.equal(ui.game.held.id,'rice');assert.equal(ui.nodes['supply-picker'].classList.contains('hidden'),true);
+});
+
+test('mixed sauce goal, checklist and held-item labels never use missing spoon measurements',()=>{
+ for(const id of ['sweetChili','haishan','fiveFlavor']){
+  const ui=runtime();ui.select(id+'-school');
+  assert.doesNotMatch(ui.nodes['level-goals'].textContent,/undefined|大匙/);
+  ui.nodes.start.onclick();ui.frame();ui.game.held={id};ui.frames(15);
+  assert.doesNotMatch(ui.nodes.orders.innerHTML,/undefined|NaN|大匙/);
+  for(const node of Object.values(ui.nodes))assert.doesNotMatch(node.textContent+' '+node.innerHTML,/undefined/,id+' labels');
+ }
+});
+
+test('third-level quantity defaults to one, adjusts by keyboard, cancels and confirms a stack',()=>{
+ const ui=runtime();ui.select('opening');ui.nodes.start.onclick();ui.frame();const s=core.getInteractiveStations(ui.game.stations).find(s=>s.id==='fridge');ui.player.x=s.x*60+30;ui.player.y=s.y*60+100;ui.player.dx=0;ui.player.dy=-1;ui.frame();
+ const key=k=>{ui.press(k);ui.release(k);};key('e');ui.nodes['supply-options'].onclick({target:{closest:()=>({dataset:{supply:'miso'}})}});
+ assert.equal(ui.nodes['quantity-input'].value,'1');assert.equal(ui.game.held,null);key('ArrowRight');assert.equal(ui.nodes['quantity-input'].value,'2');key('Escape');assert.equal(ui.game.held,null);
+ ui.nodes['supply-options'].onclick({target:{closest:()=>({dataset:{supply:'miso'}})}});assert.equal(ui.nodes['quantity-input'].value,'1');ui.nodes['quantity-input'].value='4';key('Enter');assert.equal(ui.game.held.id,'miso');assert.equal(ui.game.held.count,4);
+});

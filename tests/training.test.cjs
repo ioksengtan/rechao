@@ -16,7 +16,7 @@ test('spice course stays untimed, chops scallion only, retains excess, completes
  const g=new Kitchen(Math.random,'spice-school');g.tick(500);g.startService();g.addOrder();
  assert.equal(g.level.course,'spices');assert.equal(g.phase,'training');assert.equal(g.time,0);assert.equal(g.orders.length,0);
  assert.ok(!g.stations.some(s=>['wok','plates'].includes(s.type)));
- assert.deepEqual(g.stations.map(s=>s.id).sort(),['basil','board','counter','scallion','serve','trash']);
+ assert.deepEqual(g.stations.filter(s=>s.type!=='supply').map(s=>s.id).sort(),['board','counter','counter2','counter3','serve','trash']);
  g.interact('scallion');g.interact('serve');assert.equal(g.held.id,'scallion');assert.equal(g.served,0);
  g.interact('trash');g.interact('basil');g.interact('board');assert.equal(g.held.id,'basil');assert.match(g.events.at(-1).text,/九層塔不用切/);
  g.interact('serve');assert.equal(g.delivered.basil,1);g.held={id:'sauce'};g.interact('serve');assert.equal(g.held.id,'sauce');
@@ -29,11 +29,11 @@ test('spice course stays untimed, chops scallion only, retains excess, completes
 });
 test('sauce course measures spoons, rejects over-pour, delivers portions and resets',()=>{
  const g=new Kitchen(Math.random,'sauce-school');g.tick(500);g.startService();g.addOrder();
- assert.equal(g.level.course,'sauces');assert.equal(g.level.measure,'sauce');assert.equal(g.phase,'training');assert.equal(g.time,0);assert.equal(g.orders.length,0);
+ assert.equal(g.level.course,'archived');assert.equal(g.level.measure,'sauce');assert.equal(g.phase,'training');assert.equal(g.time,0);assert.equal(g.orders.length,0);
  assert.ok(!g.stations.some(s=>['wok','plates','board'].includes(s.type)));
- assert.deepEqual(g.stations.map(s=>s.id).sort(),['counter','sauce','serve','soy','trash']);
+ assert.deepEqual(g.stations.filter(s=>s.type!=='supply').map(s=>s.id).sort(),['counter','counter2','counter3','serve','trash']);
  assert.equal(g.stations.find(s=>s.id==='counter').name,'量杯區');
- const friday=new Kitchen(Math.random,'friday');assert.equal(friday.stations.some(s=>s.supply==='soy'),false);
+ const friday=new Kitchen(Math.random,'friday');assert.equal(friday.stations.some(s=>s.supply==='soy'),true);
  const cup=()=>g.stations.find(s=>s.id==='counter');
  g.interact('sauce');assert.equal(g.held.bottle,true);g.interact('serve');assert.equal(g.held.id,'sauce');assert.equal(g.delivered.saucePortion,undefined);
  g.interact('counter');g.interact('counter');assert.equal(cup().spoons,2);assert.equal(g.held.bottle,true);
@@ -65,8 +65,8 @@ test('juice course measures slices, cc and cubes, rejects overshoot, accepts cup
  const g=new Kitchen(Math.random,'juice-school');g.tick(500);g.startService();g.addOrder();
  assert.equal(g.level.course,'juice');assert.equal(g.level.measure,'juice');assert.equal(g.phase,'training');assert.equal(g.time,0);assert.equal(g.orders.length,0);
  assert.ok(!g.stations.some(s=>['wok','plates','board'].includes(s.type)));
- assert.deepEqual(g.stations.map(s=>s.id).sort(),['counter','ice','juice-bar','lemon','plum','serve','syrup','trash']);
- const friday=new Kitchen(Math.random,'friday');assert.equal(friday.stations.some(s=>['lemon','syrup','ice','plum','juice-bar'].includes(s.id)),false);
+ assert.deepEqual(g.stations.filter(s=>s.type!=='supply').map(s=>s.id).sort(),['counter','counter2','counter3','juice-bar','serve','trash']);
+ const friday=new Kitchen(Math.random,'friday');assert.equal(friday.stations.some(s=>s.id==='juice-bar'),false);
  friday.held={id:'lemon'};friday.interact('wok');assert.equal(friday.held.id,'lemon');
  const bar=()=>g.stations.find(s=>s.id==='juice-bar');
  pour(g,'lemon',1);g.interact('lemon');assert.equal(g.held,null);

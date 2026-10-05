@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>rechao — 熱炒開店啦！｜單人料理小遊戲</title>
-  <link rel="stylesheet" href="style.css?v=0.15.0">
+  <link rel="stylesheet" href="style.css?v=0.15.0-quantity">
 </head>
 <body>
   <main class="app">
@@ -22,7 +22,7 @@
     <div class="play-layout">
       <section class="kitchen-panel">
         <div class="panel-heading"><span id="kitchen-title">第一晚開張 · 今晚，你是總舖師</span><span id="held-label">雙手空空</span></div>
-        <div class="canvas-wrap"><canvas id="game" width="1160" height="720" aria-label="台灣巷口熱炒店，左側操作廚房、右側用餐區。使用 WASD 或畫面方向鍵移動、E 拿放、按住 F 料理"></canvas><div id="toast" role="status"></div><div id="interaction"></div>
+        <div class="canvas-wrap"><canvas id="game" width="1160" height="900" aria-label="L 型廚房，後牆炒爐、右後方冰箱、左側開放層架、右後方水槽、中央備料島。使用 WASD 或畫面方向鍵移動、E 拿放、按住 F 料理"></canvas><div id="toast" role="status"></div><div id="interaction"></div>
           <div id="touch-controls" class="touch-controls" hidden>
             <div class="dpad" role="group" aria-label="移動">
               <button type="button" id="touch-up" tabindex="-1" aria-label="向上" aria-pressed="false">▲</button>
@@ -45,7 +45,7 @@
         <section class="recipe-panel"><div class="side-heading"><h2 id="menu-title">今晚菜單</h2><span id="menu-count">2 道拿手菜</span></div><div id="recipe-list"></div><div class="chef-note"><strong>主廚筆記</strong><p id="tip">站到工作站旁，看腳下的操作提示。按住 F 才能持續切料。</p></div></section>
       </aside>
     </div>
-    <footer><span>小小廚房，大大鍋氣。</span><span>原型 v0.15 · 水彩廚房 · 鍵盤與觸控</span></footer>
+    <footer><span>小小廚房，大大鍋氣。</span><span>原型 v0.15 · L 型廚房與中央工作島 · 鍵盤與觸控</span></footer>
   </main>
   <div id="overlay" class="overlay">
     <section class="modal level-modal" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
@@ -75,6 +75,7 @@
     <section class="modal hidden" id="paused" role="dialog" aria-modal="true" aria-labelledby="pause-title"><div class="modal-kicker">休息一下</div><h2 id="pause-title">爐火與時間，都幫你暫停了。</h2><p class="intro">準備好了，就繼續出菜。</p><button id="resume" class="primary">繼續營業 →</button><button id="restart-pause" class="secondary">重新開始這一晚</button><button id="choose-pause" class="text-button">結束本局，返回選關</button></section>
     <section class="modal hidden" id="results" role="dialog" aria-modal="true" aria-labelledby="result-title"><div class="modal-kicker" id="result-level">辛苦了，主廚</div><div id="stars" class="stars">★★★</div><h2 id="result-title">今晚打烊啦！</h2><p id="result-message" class="intro"></p><div id="result-stats"></div><p id="best-record"></p><div class="copy-row"><button id="copy-stats" class="small-action">複製本局數據</button><span id="copy-status" role="status"></span></div><textarea id="copy-fallback" class="copy-fallback hidden" readonly rows="9" aria-label="本局數據"></textarea><button id="next-level" class="primary">挑戰下一晚 →</button><button id="restart" class="secondary">再開一晚</button><button id="choose-results" class="text-button">返回選關</button></section>
   </div>
-  <script src="game-core.js?v=0.15.0"></script><script src="progress.js?v=0.15.0"></script><script src="career.js?v=0.15.0"></script><script src="movement.js?v=0.15.0"></script><script src="audio.js?v=0.15.0"></script><script src="art.js?v=0.15.0"></script><script src="game.js?v=0.15.0"></script>
+  <div id="supply-picker" class="overlay hidden" style="z-index:30"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="supply-title"><h2 id="supply-title">選擇食材</h2><p id="supply-note" class="intro"></p><p class="supply-help">方向鍵／WASD 選擇 · Enter／E 確認 · Esc 關閉</p><div id="supply-options"></div><div id="quantity-panel" class="hidden"><h3 id="quantity-title">選擇數量</h3><div class="quantity-row"><button id="quantity-less" aria-label="減少數量">−</button><input id="quantity-input" aria-label="取用數量" type="number" min="1" max="10" step="1" value="1"><button id="quantity-more" aria-label="增加數量">＋</button></div><button id="quantity-confirm" class="primary">確認拿取 · Enter</button><button id="quantity-back" class="secondary">返回原料選擇 · Esc</button></div><button id="supply-close" class="secondary">關閉 · Esc</button></section></div>
+  <script src="game-core.js?v=0.15.0-quantity"></script><script src="progress.js?v=0.15.0-quantity"></script><script src="career.js?v=0.15.0"></script><script src="movement.js?v=0.15.0-quantity"></script><script src="audio.js?v=0.15.0"></script><script src="art.js?v=0.15.0-quantity"></script><script src="game.js?v=0.15.0-quantity"></script>
 </body>
 </html>

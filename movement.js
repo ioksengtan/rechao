@@ -1,8 +1,11 @@
 (function (root) {
   'use strict';
-  const createPlayer = () => ({ x: 480, y: 420, dx: 0, dy: -1, walk: 0 });
+  const { ROOM_LAYOUT } = typeof module !== 'undefined' && module.exports ? require('./game-core.js') : root.HotStirFry;
+  const furniture = [ROOM_LAYOUT.back, ROOM_LAYOUT.left, ROOM_LAYOUT.fridge, ROOM_LAYOUT.island, ...ROOM_LAYOUT.stools];
+  const createPlayer = () => ({ x: 240, y: 420, dx: 0, dy: -1, walk: 0 });
   function blocked(x, y, stations) {
     if (x < 45 || x > 915 || y < 56 || y > 551) return true;
+    if (furniture.some(r => x > r.x - 12 && x < r.x + r.w + 12 && y > r.y - 12 && y < r.y + r.h + 12)) return true;
     return stations.some(s => Math.abs(x - (s.x * 60 + 30)) < 45 && Math.abs(y - (s.y * 60 + 30)) < 42);
   }
   function findTarget(player, stations) {
