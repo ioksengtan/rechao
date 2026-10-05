@@ -21,21 +21,29 @@ function tap(ui, id, pointerId = 1) {
   if(id==='touch-e'&&ui.pendingSupply){ui.nodes['supply-options'].onclick({target:{closest:()=>({dataset:{supply:ui.pendingSupply}})}});ui.nodes['quantity-confirm'].onclick();ui.pendingSupply=null;}
 }
 
+test('the visible title uses the current display name', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /<title>[^<]*來我家簡單吃[^<]*<\/title>/);
+  assert.match(html, /<h1>來我家簡單吃<\/h1>/);
+  assert.match(html, /modal-kicker">來我家簡單吃</);
+  assert.doesNotMatch(html, /熱炒開店啦/);
+});
+
 test('page ships touch controls beside the keyboard and career mode', () => {
   const root = path.join(__dirname, '..');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const css = fs.readFileSync(path.join(root, 'style.css'), 'utf8');
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
-  assert.equal(require('../package.json').version, '0.15.0');
+  assert.equal(require('../package.json').version, '0.16.0');
   assert.match(html, /viewport-fit=cover/);
   assert.match(html, /id="touch-controls"/);
   assert.match(html, /id="career-open"/);
   assert.match(html, /id="touch-f"/);
-  assert.match(html, /v=0\.15\.0/);
+  assert.match(html, /v=0\.16\.0/);
   assert.match(html, /鍵盤與觸控/);
   assert.match(css, /career-modal/);
   assert.match(css, /touch-action:\s*none/);
-  assert.match(readme, /0\.15\.0/);
+  assert.match(readme, /0\.16\.0/);
   assert.match(readme, /成長模式/);
   assert.match(readme, /觸控/);
   assert.doesNotMatch(readme, /需要實體鍵盤/);

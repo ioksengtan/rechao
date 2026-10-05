@@ -596,7 +596,7 @@
     }
     finish() { if (this.phase === 'ended') return; this.expired += this.orders.length; this.orders = []; this.phase = 'ended'; this.time = 0; }
   }
-  const VERSION = '0.15.0';
+  const VERSION = '0.16.0';
   const api = { getInteractiveStations, SAUCE_RECIPES, sauceMixLines, sauceMixReady, COUNTER_CAPACITY, canStack, VERSION, Kitchen, ITEMS, RECIPES, DRINKS, JUICE_RECIPES, TRAINING_JUICE, SAUCE_SPOONS, SAUCE_CC, SYRUP_STEP_CC, SYRUP_TOLERANCE_CC, menuOffer, ROOM_LAYOUT, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor, portionsFor, cookDuration, chopDuration, MIX_TIME, juiceRecipe, measuredJuiceMatch, juiceOvershot, juiceMeasureLines, juiceTargetText, sauceMeasureLine, CHEF_STATS, getChefModifiers, flipWindowText };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HotStirFry = api;

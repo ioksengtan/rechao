@@ -1,4 +1,8 @@
-# rechao — 熱炒開店啦！
+# rechao — 來我家簡單吃
+
+## v0.16 改名
+
+遊戲顯示名稱由「熱炒開店啦！」改為「來我家簡單吃」。頁面標題、遊戲內標題、開始畫面與分享用文字一併更新。儲存庫名稱、網址、套件名稱與存檔鍵沒有改，已經遊玩過的進度仍可讀取。
 
 ### v0.15 遊戲配置：L 型廚房與中央工作島
 
@@ -120,7 +124,7 @@
 
 A 2D single-player cooking game inspired by Taiwan’s lively stir-fry restaurants. Prep ingredients, fire up the wok, and serve hungry customers through the dinner rush.
 
-Current version: 0.15.0
+Current version: 0.16.0
 
 社群推廣用的繁體中文貼文、更新公告與短影片字幕，見 [社群文案](docs/social-copy.zh-TW.md)。
 
