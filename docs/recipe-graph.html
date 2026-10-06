@@ -104,7 +104,7 @@ const D = [
   { id: 'lobster', n: '龍蝦殼', t: 'raw' }, { id: 'seafood', n: '魚與蝦', t: 'raw' }, { id: 'whitewine', n: '白酒', t: 'raw' },
   { id: 'redwine', n: '紅酒', t: 'raw' }, { id: 'madeira', n: '馬德拉酒', t: 'raw' }, { id: 'beer', n: '啤酒', t: 'raw' },
   { id: 'cheese', n: '乳酪', t: 'raw' }, { id: 'basil', n: '羅勒', t: 'raw' }, { id: 'olive', n: '黑橄欖', t: 'raw' },
-  { id: 'balsamic', n: '巴薩米可醋', t: 'raw' }, { id: 'pasta', n: '義大利麵', t: 'raw' }, { id: 'chilli', n: '辣椒', t: 'raw' }, { id: 'lemon', n: '檸檬', t: 'raw' }, { id: 'honey', n: '蜂蜜', t: 'raw' }, { id: 'egg', n: '雞蛋', t: 'raw' }, { id: 'crumbs', n: '麵包粉', t: 'raw' }, { id: 'cauliflower', n: '花椰菜', t: 'raw' }, { id: 'anchovy', n: '油漬鯷魚', t: 'raw' }, { id: 'pinenut', n: '松子', t: 'raw' }, { id: 'ketchup', n: '番茄醬', t: 'raw' }, { id: 'bacon', n: '培根', t: 'raw' }, { id: 'greenpepper', n: '青椒', t: 'raw' }, { id: 'soymilk', n: '豆漿', t: 'raw' }, { id: 'nigari', n: '鹽滷', t: 'raw' },
+  { id: 'balsamic', n: '巴薩米可醋', t: 'raw' }, { id: 'pasta', n: '義大利麵', t: 'raw' }, { id: 'chilli', n: '辣椒', t: 'raw' }, { id: 'lemon', n: '檸檬', t: 'raw' }, { id: 'honey', n: '蜂蜜', t: 'raw' }, { id: 'egg', n: '雞蛋', t: 'raw' }, { id: 'crumbs', n: '麵包粉', t: 'raw' }, { id: 'cauliflower', n: '花椰菜', t: 'raw' }, { id: 'anchovy', n: '油漬鯷魚', t: 'raw' }, { id: 'pinenut', n: '松子', t: 'raw' }, { id: 'ketchup', n: '番茄醬', t: 'raw' }, { id: 'bacon', n: '培根', t: 'raw' }, { id: 'greenpepper', n: '青椒', t: 'raw' }, { id: 'soymilk', n: '豆漿', t: 'raw' }, { id: 'nigari', n: '鹽滷', t: 'raw' }, { id: 'chickenthigh', n: '雞腿肉', t: 'raw' }, { id: 'currypaste', n: '紅咖哩醬', t: 'raw' }, { id: 'coconut', n: '椰奶', t: 'raw' }, { id: 'rice', n: '白飯', t: 'raw' },
   // 基底
   { id: 'stock', n: '雞肉澄清湯', t: 'base', i: ['wing'],
     s: ['雞翅從關節切開、骨頭剁斷，先汆燙去血水。', '加水大火煮，浮沫聚成一團再撈；浮油另外收起來就是雞油。', '轉小火保持不滾，燉好幾小時，水少了就補，過濾後是「白色基底」。', '蔬菜切薄片，和打散的蛋白、冰冷的雞絞肉一起搓揉到有黏性。', '白色基底稍微溫熱，一勺一勺拌進絞肉，再全部倒回鍋裡加熱，持續攪拌鍋底。', '湯面從透明轉為泛白時停止攪拌，絞肉浮起成一片蓋子，中間開孔、小火長時間燉。', '熄火靜置，從孔裡慢慢舀出湯，用墊紙巾的濾勺過濾，全程不能弄散肉蓋。'],
@@ -335,7 +335,13 @@ const D = [
     m: ['炒番茄醬到酸味柔和', '拌炒收汁', '煎蛋：邊緣焦脆、蛋黃半熟'], x: '來源：Instagram 短影片（@chef.ahhao、@buonobella525）。日本喫茶店的經典。台式版本：番茄炒麵。' },
   { id: 'douhua', n: '鹽滷豆花', t: 'dish', i: ['soymilk', 'nigari'],
     s: ['豆漿倒進內鍋。', '加入鹽滷，豆漿和鹽滷約 100 比 1。', '攤拌約 30 下，撈掉表面的泡泡。', '電鍋外鍋加 1 杯水，蒸約 20 分鐘。', '打開外鍋蓋放涼約 20 分鐘。', '冷藏 3～4 小時。'],
-    m: ['量鹽滷：太少不凝固、太多會苦', '攤拌 30 下', '撈泡泡', '電鍋蒸：等開關跳起'], x: '來源：Instagram 短影片（@g.dietitian_）。台灣家常甜點，適合請客前一天先做。' }
+    m: ['量鹽滷：太少不凝固、太多會苦', '攤拌 30 下', '撈泡泡', '電鍋蒸：等開關跳起'], x: '來源：Instagram 短影片（@g.dietitian_）。台灣家常甜點，適合請客前一天先做。' },
+  { id: 'currybase', n: '椰奶紅咖哩醬底', t: 'sauce', i: ['currypaste', 'coconut', 'onion', 'garlic'],
+    s: ['中火炒洋蔥，再加蒜和薑炒香。', '加紅咖哩醬，不停拌炒約一分鐘。', '先倒三分之一的椰奶拌開，煮到冒泡，再加剩下的椰奶和高湯。', '加魚露和黑糖。'],
+    m: ['炒咖哩醬：不停拌炒', '分次加椰奶'], x: '來源：Instagram 短影片（@foodie.randy）。' },
+  { id: 'currychicken', n: '椰奶紅咖哩雞', t: 'dish', i: ['currybase', 'chickenthigh', 'lemon', 'basil', 'rice'],
+    s: ['雞肉擦乾、撒鹽，中大火兩面煎到上色，先取出。', '用同一口鍋做咖哩醬底。', '雞肉連肉汁放回鍋裡，加紅甜椒，小火煲到熟透、醬汁變稠。', '關火拌入萊姆汁，試味道：不夠鹹加魚露、不夠甜加糖、不夠酸加萊姆。', '淋在飯上，撒羅勒或香菜、蔥花。'],
+    m: ['煎雞肉上色，不用全熟', '試味道：鹹、甜、酸調到平衡'], x: '一口鍋做完，配飯就能請客。台式版本：咖哩雞飯。' }
 ];
 
 const byId = Object.fromEntries(D.map(d => [d.id, d]));
