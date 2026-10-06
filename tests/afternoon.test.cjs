@@ -170,35 +170,35 @@ test('opening night still hides soy and juice gear; afternoon places both board 
   const trainingIds = ['soy', 'lemon', 'syrup', 'ice', 'plum', 'juice-bar'];
   for (const id of OLD_NIGHTS) {
     const stations = getStations(LEVELS.find(l => l.id === id));
-    assert.ok(trainingIds.every(stationId => !stations.some(s => s.id === stationId)), id);
+    assert.ok(!stations.some(s=>s.id==='juice-bar'),id);assert.ok(trainingIds.filter(id=>id!=='juice-bar').every(id=>stations.some(s=>s.id===id)));
   }
   const lesson = getStations(LEVELS.find(l => l.id === 'juice-school'));
-  assert.deepEqual(lesson.find(s => s.id === 'lemon'), expectStation(lesson, 'lemon', 1, 1));
-  assert.equal(lesson.find(s => s.id === 'juice-bar').x, 4);
-  assert.equal(lesson.find(s => s.id === 'juice-bar').y, 4);
+  assert.deepEqual(lesson.find(s => s.id === 'lemon'), expectStation(lesson, 'lemon', 1, 5));
+  assert.equal(lesson.find(s => s.id === 'juice-bar').x, 10);
+  assert.equal(lesson.find(s => s.id === 'juice-bar').y, 5);
   assert.equal(lesson.find(s => s.id === 'serve').name, '驗收檯');
   assert.ok(!lesson.some(s => s.id === 'board'));
 
   const g = new Kitchen(() => .5, 'afternoon');
   assert.equal(g.stations.find(s => s.id === 'serve').name, '出餐口');
-  assert.equal(g.stations.find(s => s.id === 'board').x, 4);
-  assert.equal(g.stations.find(s => s.id === 'board').y, 4);
-  assert.equal(g.stations.find(s => s.id === 'juice-bar').x, 4);
-  assert.equal(g.stations.find(s => s.id === 'juice-bar').y, 6);
+  assert.equal(g.stations.find(s => s.id === 'board').x, 6);
+  assert.equal(g.stations.find(s => s.id === 'board').y, 5);
+  assert.equal(g.stations.find(s => s.id === 'juice-bar').x, 10);
+  assert.equal(g.stations.find(s => s.id === 'juice-bar').y, 5);
   assert.deepEqual(g.stations.find(s => s.id === 'juice-bar').ingredients, []);
   assert.deepEqual(
     ['lemon', 'syrup', 'ice', 'plum'].map(id => [id, g.stations.find(s => s.id === id).x, g.stations.find(s => s.id === id).y]),
-    [['lemon', 7, 1], ['syrup', 9, 1], ['ice', 11, 1], ['plum', 13, 1]]
+    [['lemon', 1, 5], ['syrup', 1, 7], ['ice', 14.5, 1], ['plum', 14.5, 3]]
   );
-  assert.equal(g.stations.find(s => s.id === 'soy').x, 12);
-  assert.equal(g.stations.find(s => s.id === 'soy').y, 3);
-  const stations = g.stations;
+  assert.equal(g.stations.find(s => s.id === 'soy').x, 9);
+  assert.equal(g.stations.find(s => s.id === 'soy').y, 1);
+  const stations = require('../game-core.js').getInteractiveStations(g.stations);
   for (let i = 0; i < stations.length; i++) for (let j = i + 1; j < stations.length; j++) {
     const a = stations[i], b = stations[j];
     const overlaps = Math.abs(a.x - b.x) * 60 < 90 && Math.abs(a.y - b.y) * 60 < 84;
     assert.equal(overlaps, false, `${a.id} overlaps ${b.id}`);
   }
-  assert.ok(STATIONS.filter(s => s.training && s.id !== 'soy' && !['lemon', 'syrup', 'ice', 'plum', 'juice-bar'].includes(s.id)).length === 0);
+  assert.ok(STATIONS.filter(s => s.training && s.id !== 'soy' && !['lemon', 'syrup', 'ice', 'plum', 'juice-bar', 'sauce-bowl', 'ketchup', 'sugar', 'vinegar', 'chili', 'miso', 'ginger', 'garlic'].includes(s.id)).length === 0);
 });
 
 function expectStation(stations, id, x, y) {

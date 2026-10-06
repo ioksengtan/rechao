@@ -478,3 +478,30 @@ footer{color:#7a7468}
 }
 .canvas-wrap{background:#f3e6cc}
 .dish-art{filter:none}
+
+/* Readable controls and labels, including the phone layout. */
+.panel-heading,.control-bar,.dashboard small,.order-head,.order p,.order-bottom,.recipe strong,.recipe p,.recipe small,.chef-note strong,.chef-note p,.section-subtitle,.small-action,.intro,.secondary,.modal-foot,footer { font-size:14px; }
+#interaction,#toast,.order h3,.recipe strong { font-size:16px; }
+@media (max-width:720px) {
+  .canvas-wrap { overflow-x:auto; }
+  .canvas-wrap,#game { touch-action:pan-x; }
+  #game { width:780px; max-width:none; }
+  body.touch-active #interaction { position:sticky; left:0; bottom:0; transform:none; margin:0; max-width:100%; width:100%; padding:10px; }
+  .panel-heading { font-size:14px; }
+  aside { grid-template-columns:1fr; }
+}
+@media (max-width:720px) { body.playing .kitchen-panel { touch-action:auto; } }
+@media (max-width:720px) {
+  .canvas-wrap,#game { touch-action:pan-x pan-y pinch-zoom; }
+  .kitchen-panel::before { content:'左右滑動查看廚房 · 上下滑動調整視野'; display:block; padding:8px 12px; font-size:14px; color:#405544; background:#f3ead8; }
+}
+#supply-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+#supply-options button { margin:0; min-height:52px; font-size:17px; background:#e9eddf; color:#314e3b; }
+#supply-options button:disabled { opacity:.45; cursor:default; }
+#supply-picker .modal { max-height:90dvh; overflow:auto; }
+#supply-note { font-size:16px; }
+#supply-options button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; min-height:112px; }
+#supply-options .supply-icon { font-size:38px; line-height:1.2; font-family:'Segoe UI Emoji','Apple Color Emoji',sans-serif; }
+#supply-options button:focus { outline:3px solid #a64c31; outline-offset:2px; background:#fff0ce; box-shadow:0 0 0 5px #a64c311a; }
+.supply-help { font-size:14px; line-height:1.6; color:#52634d; }
+.quantity-row{display:flex;justify-content:center;gap:14px;margin:20px 0}.quantity-row button{width:52px;height:52px;font-size:26px}.quantity-row input{width:90px;text-align:center;font-size:24px}

@@ -30,7 +30,7 @@ test('lunch is a short greens-and-rice service night', () => {
   assert.deepEqual(opening.stars, [160, 450, 900]);
   assert.equal(LEVELS.find(l => l.id === 'rush').serviceTime, 180);
   assert.equal(LEVELS.find(l => l.id === 'friday').serviceTime, 180);
-  assert.deepEqual(LEVELS.filter(l => l.mode === 'training').map(l => l.id), ['prep-school', 'spice-school', 'sauce-school', 'juice-school']);
+  assert.deepEqual(LEVELS.filter(l => l.mode === 'training').map(l => l.id), ['prep-school', 'spice-school', 'sauce-school', 'juice-school', 'sweetChili-school', 'haishan-school', 'fiveFlavor-school']);
 });
 
 test('lunch star thresholds stay fair for a 90 second greens-and-rice service', () => {
@@ -64,8 +64,8 @@ test('lunch reset clears a previous night and only opens greens and rice station
   assert.deepEqual(Object.keys(g.woks), ['wok']);
   assert.equal(g.wok.state, 'empty');
   assert.equal(g.stations.some(s => s.id === 'wok2' || s.id === 'board2'), false);
-  assert.ok(STATIONS.filter(s => s.training).every(s => !g.stations.some(station => station.id === s.id)));
-  assert.deepEqual(g.stations.map(s => s.id), ['greens', 'egg', 'scallion', 'rice', 'board', 'counter', 'wok', 'plates', 'serve', 'trash']);
+  assert.ok(STATIONS.filter(s => s.training && s.type!=='supply').every(s => !g.stations.some(station => station.id === s.id)));
+  assert.deepEqual(g.stations.filter(s=>s.type!=='supply').map(s => s.id), [ 'board', 'counter','counter2','counter3', 'wok', 'plates', 'serve', 'trash']);
   g.held = { id: 'soy' }; g.serve(); assert.equal(g.served, 0); assert.equal(g.held.id, 'soy');
   g.held = { id: 'lemonJuice' }; g.serve(); assert.equal(g.served, 0); assert.equal(g.held.id, 'lemonJuice');
   g.held = null;
@@ -80,7 +80,7 @@ test('lunch reset clears a previous night and only opens greens and rice station
 });
 
 test('every lunch workstation is reachable and the best score is stored', () => {
-  const stations = getStations(lunch());
+  const stations = require('../game-core.js').getInteractiveStations(getStations(lunch()));
   const start = createPlayer();
   assert.equal(blocked(start.x, start.y, stations), false);
   const queue = [[start.x, start.y]], seen = new Set([`${start.x},${start.y}`]), reachable = new Set();

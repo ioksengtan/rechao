@@ -1,7 +1,7 @@
 /* Single-player input, UI and presentation hooks. No runtime dependencies. */
 (() => {
   'use strict';
-  const { Kitchen, ITEMS, LEVELS, starCount, portionsFor, cookDuration, flipWindowText, menuOffer, MIX_TIME, SAUCE_SPOONS, TRAINING_JUICE, juiceMeasureLines, sauceMeasureLine, measuredJuiceMatch, juiceOvershot, juiceTargetText } = window.HotStirFry;
+  const { getInteractiveStations, sauceMixLines, sauceMixReady, COUNTER_CAPACITY, canStack, Kitchen, ITEMS, LEVELS, starCount, portionsFor, cookDuration, flipWindowText, menuOffer, MIX_TIME, SAUCE_SPOONS, TRAINING_JUICE, juiceMeasureLines, sauceMeasureLine, measuredJuiceMatch, juiceOvershot, juiceTargetText } = window.HotStirFry;
   const { createPlayer, movePlayer } = window.HotStirFryMovement;
   const $ = id => document.getElementById(id);
   const canvas = $('game'), ctx = canvas.getContext('2d');
@@ -23,7 +23,7 @@
   const courseFor = level => level.course;
   const goalText = level => level.goals.map(g => {
     const item = ITEMS[g.id];
-    return item.portion ? `${item.name} ${item.spoons} 大匙 × ${g.count}` : `${item.name} ${g.count} 份`;
+    return Number.isFinite(item.spoons) ? `${item.name} ${item.spoons} 大匙 × ${g.count}` : `${item.name} ${g.count} 份`;
   }).join('、');
   const nextLevel = () => game.level.mode === 'training' ? LEVELS[0] : LEVELS.filter(l => !l.mode)[LEVELS.filter(l => !l.mode).indexOf(game.level)+1];
   game.reset(selectedLevel);
@@ -232,6 +232,7 @@
     renderLevelSelect(); $('course-tabs').querySelector(`[data-course="${selectedCourse}"]`).focus();
   };
   function showSelection() {
+    closeSupply();
     selectedCourse = courseFor(game.level);
 
     running = false; ended = false; clearInput(); target = null; game.reset(selectedLevel, null); art.reset(); careerOpen = false; $('career').classList.add('hidden');
@@ -252,14 +253,16 @@
     beginShift(card ? { kind: 'chef', level: selectedLevel, chef: card } : { kind: 'standard', level: selectedLevel, chef: null });
   }
   function beginShift(next) {
+    closeSupply();
     session = next; selectedLevel = next.level; selectedCourse = courseFor(LEVELS.find(l => l.id === next.level));
     sfx.resume();
     game.reset(selectedLevel, session.chef); art.reset(); player = createPlayer(); clearInput(); running = true; ended = false; target = null;
     $('overlay').classList.add('hidden'); updatePauseLabel(); syncPlayChrome(); last = performance.now();
     canvas.focus({ preventScroll: true }); renderMenu();
-    showToast(game.level.mode === 'training' ? game.level.toast : game.level.woks === 1 ? '先去左上方青菜箱按 E 拿菜，再到砧板備料。' : `${game.level.name}：兩口鍋各自計時，先備好料再開火。`, 'done'); updateHUD();
+    showToast(game.level.mode === 'training' ? '先到層架、轉盤或冰箱按 E，再選擇食材。'+game.level.toast : game.level.woks === 1 ? '先到開放層架按 E，選青菜，再到砧板備料。' : `${game.level.name}：兩口鍋各自計時，先備好料再開火。`, 'done'); updateHUD();
   }
   function pause(force) {
+    if(supplyOpen)closeSupply();
     if (!running || ended) return;
     game.paused = typeof force === 'boolean' ? force : !game.paused; clearInput();
     $('overlay').classList.toggle('hidden', !game.paused); $('welcome').classList.add('hidden'); $('results').classList.add('hidden'); $('paused').classList.remove('hidden');
@@ -295,8 +298,39 @@
     pointerHolds.clear();
     keys.clear();
   }
+  let supplyOpen=null, supplyIndex=0, quantityItem=null;
+  function closeSupply() { quantityItem=null;$('quantity-panel').classList.add('hidden');$('supply-options').classList.remove('hidden');supplyOpen=null;$('supply-picker').classList.add('hidden');clearInput();last=performance.now();canvas.focus({preventScroll:true}); }
+  function chooseSupply(id) {
+    if(!supplyOpen?.members.includes(id))return;
+    const station=game.stations.find(s=>s.id===id);
+    if(game.held && (game.held.id!==station.supply || game.held.portion))return;
+    if(game.held){game.interact(id);closeSupply();drainEvents();updateHUD();return;}
+    quantityItem=id;$('quantity-input').value='1';
+    const container=(game.level.measure==='juice'&&['lemon','plum','syrup','ice'].includes(station.supply))||(game.level.measure==='sauce'&&SAUCE_SPOONS[station.supply]);
+    $('quantity-input').max=container?'1':'10';
+    $('quantity-title').textContent=ITEMS[station.supply].name+' · '+(container?'取用 1 個原料容器':'選擇數量（1–10 份）');
+    $('supply-options').classList.add('hidden');$('quantity-panel').classList.remove('hidden');$('quantity-input').focus();
+  }
+  const supplyIcons={greens:'🥬',scallion:'🌱',rice:'🍚',basil:'🌿',sugar:'🧂',ginger:'🫚',garlic:'🧄',egg:'🥚',beef:'🥩',chicken:'🍗',ice:'🧊',plum:'🫒',lemon:'🍋',sauce:'🥣',soy:'🍶',ketchup:'🍅',vinegar:'🍶',chili:'🌶️',miso:'🫘',syrup:'🍯'};
+  function supplyChoices(){return supplyOpen.members.filter(id=>!game.held||(game.held.id===game.stations.find(s=>s.id===id).supply&&!game.held.portion));}
+  function focusSupply(){const choices=supplyChoices();supplyIndex=Math.max(0,Math.min(supplyIndex,choices.length));if(supplyIndex===choices.length)$('supply-close').focus();else $('supply-options').querySelector('[data-supply="'+choices[supplyIndex]+'"]').focus();}
+  function openSupply(group) {
+    supplyOpen=group;supplyIndex=0;clearInput();
+    $('supply-title').textContent=group.name;
+    $('supply-note').textContent=game.held?'手上：'+ITEMS[game.held.id].name+'。可放回相同原料；換取其他食材前請先暫放。':'選擇要拿的食材。選單開啟時遊戲暫停。';
+    $('supply-options').innerHTML=group.members.map(id=>{const st=game.stations.find(s=>s.id===id),same=game.held?.id===st.supply&&!game.held.portion;return '<button class="secondary" data-supply="'+id+'" '+(game.held&&!same?'disabled':'')+'><span class="supply-icon" aria-hidden="true">'+(supplyIcons[st.supply]||'🥣')+'</span><span>'+(same?'放回 ':'拿取 ')+ITEMS[st.supply].name+'</span></button>';}).join('');
+    $('supply-picker').classList.remove('hidden');focusSupply();
+  }
+  $('supply-options').onclick=event=>{const b=event.target.closest('[data-supply]');if(b)chooseSupply(b.dataset.supply);};
+  function backQuantity(){quantityItem=null;$('quantity-panel').classList.add('hidden');$('supply-options').classList.remove('hidden');focusSupply();}
+  function setQuantity(delta){const input=$('quantity-input');input.value=String(Math.max(1,Math.min(Number(input.max), (Number(input.value)||1)+delta)));}
+  function confirmQuantity(){const count=Number($('quantity-input').value);if(!quantityItem||!Number.isInteger(count)||count<1||count>Number($('quantity-input').max))return;game.takeSupply(quantityItem,count);closeSupply();drainEvents();updateHUD();}
+  $('quantity-less').onclick=()=>setQuantity(-1);$('quantity-more').onclick=()=>setQuantity(1);$('quantity-confirm').onclick=confirmQuantity;$('quantity-back').onclick=backQuantity;
+  $('supply-close').onclick=closeSupply;
+  $('supply-picker').onfocusin=event=>{if(!supplyOpen)return;const choices=supplyChoices(),id=event.target.getAttribute?.('data-supply');if(id)supplyIndex=choices.indexOf(id);else if(event.target.id==='supply-close')supplyIndex=choices.length;};
   function pressAction(key) {
-    if (!running || game.paused || ended || !target || (key !== 'e' && key !== 'f')) return;
+    if (supplyOpen || !running || game.paused || ended || !target || (key !== 'e' && key !== 'f')) return;
+    if(target.type==='supplyGroup'){if(key==='e')openSupply(target);return;}
     const before = art.snapshot(game);
     if (key === 'e') game.interact(target.id); else game.action(target.id);
     art.action(target, game, before); drainEvents(); updateHUD();
@@ -344,10 +378,10 @@
   touchRoot.addEventListener('contextmenu', event => event.preventDefault());
   touchRoot.addEventListener('touchstart', event => event.preventDefault(), { passive: false });
   canvas.closest('.kitchen-panel').addEventListener('pointerdown', event => {
-    if (running && !game.paused && !ended && !event.target.closest('#touch-controls')) event.preventDefault();
+    if (running && !game.paused && !ended && !event.target.closest('#touch-controls') && !(event.target === canvas && canvas.scrollWidth > canvas.closest('.canvas-wrap').clientWidth)) event.preventDefault();
   });
   canvas.closest('.kitchen-panel').addEventListener('touchstart', event => {
-    if (running && !game.paused && !ended) event.preventDefault();
+    if (running && !game.paused && !ended && !(event.target === canvas && canvas.scrollWidth > canvas.closest('.canvas-wrap').clientWidth)) event.preventDefault();
   }, { passive: false });
   function syncPlayChrome() { document.body.classList.toggle('playing', running && !game.paused && !ended); }
   function updatePauseLabel() {
@@ -361,7 +395,7 @@
     touchRoot.hidden = !touchActive;
     canvas.setAttribute('aria-label', touchActive
       ? '台灣巷口熱炒店。左下方向鍵移動，輕點 E 拿放，按住 F 切料、炒菜、清鍋或調果汁。'
-      : '台灣巷口熱炒店，左側操作廚房、右側用餐區。使用 WASD 移動、E 拿放、按住 F 料理');
+      : 'L 型廚房，後牆炒爐、右後方冰箱、左側開放層架、右後方水槽、中央備料島。使用 WASD 移動、E 拿放、按住 F 料理');
     $('origin-foot').textContent = touchActive ? '點按下方按鈕逐句閱讀' : 'Enter／空白鍵／→ 下一句 · ← 上一句 · Esc 返回';
     updatePauseLabel();
     renderLevelSelect();
@@ -390,6 +424,24 @@
   document.addEventListener('gesturestart', event => { if (running && !game.paused && !ended) event.preventDefault(); });
   addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
+    if(supplyOpen && quantityItem){
+      if(key==='tab'){e.preventDefault();const ids=['quantity-input','quantity-less','quantity-more','quantity-confirm','quantity-back','supply-close'];const i=ids.indexOf(document.activeElement?.id);$(ids[(i+(e.shiftKey?-1:1)+ids.length)%ids.length]).focus();return;}
+      if(['escape','arrowup','arrowdown','arrowleft','arrowright','enter','e'].includes(key))e.preventDefault();
+      if(e.repeat)return;
+      if(key==='escape')backQuantity();else if(['arrowup','arrowright'].includes(key))setQuantity(1);else if(['arrowdown','arrowleft'].includes(key))setQuantity(-1);else if(['enter','e'].includes(key)){if(document.activeElement?.id==='quantity-back')backQuantity();else if(document.activeElement?.id==='supply-close')closeSupply();else if(document.activeElement?.id==='quantity-less')setQuantity(-1);else if(document.activeElement?.id==='quantity-more')setQuantity(1);else confirmQuantity();}return;
+    }
+    if(supplyOpen){
+      const choices=supplyChoices(),n=choices.length;
+      if(['escape','tab','arrowup','arrowdown','arrowleft','arrowright','w','a','s','d','enter','e',' '].includes(key))e.preventDefault();
+      if(e.repeat)return;
+      if(key==='escape')closeSupply();
+      else if(key==='tab'){supplyIndex=(supplyIndex+(e.shiftKey?-1:1)+n+1)%(n+1);focusSupply();}
+      else if(['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d'].includes(key)){
+        const delta=['arrowup','w'].includes(key)?-2:['arrowdown','s'].includes(key)?2:['arrowleft','a'].includes(key)?-1:1;
+        supplyIndex=n?((supplyIndex===n?0:supplyIndex)+delta%n+n)%n:0;focusSupply();
+      }else if(['enter','e',' '].includes(key)){if(supplyIndex<n)chooseSupply(choices[supplyIndex]);else closeSupply();}
+      return;
+    }
     if (careerOpen) { if (key === 'escape' && !e.repeat) { e.preventDefault(); closeCareer(); } return; }
     if (originOpen) {
       if (['escape', 'enter', ' ', 'arrowright', 'arrowleft'].includes(key)) {
@@ -416,29 +468,34 @@
   addEventListener('blur', () => pause(true));
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
   function move(dt) {
-    target = movePlayer(player, keys, game.stations, dt);
+    target = movePlayer(player, keys, getInteractiveStations(game.stations), dt);
   }
   function prompt() {
     if (!target || !running || ended) return '';
     const s = target;
+    if(s.type==='supplyGroup') return 'E 打開'+s.name+' · 選擇食材';
+    if(s.type==='sauceMix') return s.item ? 'E 拿起調好的醬' : game.held ? 'E 加入 1 份原料' : sauceMixReady(game.level,s) ? '按住 F 攪拌 2 秒' : '依配方加入原料 · 過量可到廚餘桶清空';
     if (s.type === 'supply') {
+      if (game.held?.id === s.supply && !game.held.portion) return `E 放回${ITEMS[s.supply].name}`;
       if (game.level.measure === 'sauce' && SAUCE_SPOONS[s.supply]) return `E 拿${ITEMS[s.supply].name}瓶子`;
       if (game.level.measure === 'juice' && TRAINING_JUICE && ['lemon', 'plum', 'syrup', 'ice'].includes(s.supply)) return `E 拿${ITEMS[s.supply].name}，到果汁台倒`;
       return `E 取${ITEMS[s.supply].name}`;
     }
     if (s.type === 'board') return s.item ? (ITEMS[s.item.id].chopped ? `E 拿起 ${s.item.count || 1} 份切好的食材` : `共 ${s.item.count || 1}/3 份 · E 加同種食材／空手拿起 · 按住 F 切料`) : 'E 放上需要切的蔬菜／肉類';
-    if (s.type === 'counter' && game.level.measure === 'sauce') {
+    if (s.id === 'counter' && game.level.measure === 'sauce') {
       if (!s.spoons) return 'E／F 加 1 大匙 · 三杯醬 2、醬油 1';
       const target = SAUCE_SPOONS[s.sauceId];
       if (s.spoons === target) return `${ITEMS[s.sauceId].name} ${s.spoons}／${target} 大匙 · E 拿起這一份`;
       if (s.spoons > target) return `${ITEMS[s.sauceId].name} ${s.spoons}／${target} 大匙 · 太多了，到廚餘桶倒掉`;
       return `${ITEMS[s.sauceId].name} ${s.spoons}／${target} 大匙 · E／F 再加 1 大匙`;
     }
-    if (s.type === 'counter') return s.item ? (game.held ? 'E 交換手上與檯上物品' : `E 拿起${ITEMS[s.item.id].name} ×${s.item.count || 1}`) : 'E 暫放物品';
+    if (s.type === 'counter' && canStack(game.held, s.item)) return (s.item.count || 1) >= COUNTER_CAPACITY ? `備料檯已滿 ${COUNTER_CAPACITY} 份` : `E 合併${ITEMS[s.item.id].name} · 最多 ${COUNTER_CAPACITY} 份`;
+    if (s.type === 'counter') return s.item ? (game.held ? 'E 交換手上與檯上物品' : `E 拿起${ITEMS[s.item.id].name} ×${s.item.count || 1}`) : `E 暫放物品 · 同種食材最多 ${COUNTER_CAPACITY} 份`;
     if (s.type === 'plates') return `E ${game.held?.id === 'plate' ? '放回' : '拿取'}餐盤 · 剩 ${game.plates} 個`;
     if (s.type === 'serve') return game.level.mode === 'training' ? 'E 交給師傅驗收 · 不需要餐盤' : 'E 上菜 · 自動送至正確桌次';
     if (s.type === 'trash') {
       if (game.level.measure === 'juice') return 'E 丟棄手上的東西 · 空手可清空果汁台';
+      if (game.level.measure === 'sauceMix') return 'E 丟棄手上物品 · 空手清空調醬碗';
       if (game.level.measure === 'sauce') return 'E 丟棄手上的東西 · 空手可倒掉量杯';
       return 'E 丟棄食材／清空餐盤';
     }
@@ -462,7 +519,7 @@
     if (!game.held) return '雙手空空';
     const item = ITEMS[game.held.id];
     if (game.held.bottle) return '手上拿著：' + item.name + '（瓶子）';
-    if (item.portion) return `手上拿著：${item.name} ${item.spoons} 大匙`;
+    if (Number.isFinite(item.spoons)) return `手上拿著：${item.name} ${item.spoons} 大匙`;
     if (game.held.source) return '手上拿著：' + item.name;
     return '手上拿著：' + item.name + ` ×${game.held.count || 1}`;
   }
@@ -477,7 +534,7 @@
     $('orders').innerHTML = game.orders.map(o => { const r = menuOffer(o.recipe); return `<article class="order ${o.remaining < 20 ? 'urgent' : ''}"><div class="order-head"><span>第 ${o.table} 桌 · #${String(o.id).padStart(2,'0')}</span><b>$${r.price}</b></div><h3>${r.name}</h3><p>${r.ingredients.map(i => ITEMS[i].name).join(' ＋ ')}</p><div class="order-bottom"><span>${o.remaining < 20 ? '客人等得有點急了' : '客人耐心'}</span><span>${Math.ceil(o.remaining)} 秒</span></div><div class="progress-track"><i style="width:${Math.max(0,o.remaining/o.total*100)}%"></i></div></article>`; }).join('') || `<div class="empty-orders">${game.phase === 'prep' ? '客人還沒到<br>先準備一些切好的食材吧。' : '目前沒有待做的訂單<br>趁現在整理一下廚房。'}</div>`;
     const woks = Object.values(game.woks);
     const drinksOnMenu = game.level.menu.some(key => menuOffer(key)?.kind === 'drink');
-    $('tip').textContent = woks.some(w => w.state === 'ready') ? '餐盤架在炒爐下方。拿空盤，回到完成的鍋按 E 盛裝，再送到右側出餐口。' : woks.some(w => w.state === 'cooking') ? `每口鍋獨立計時。看下方鍋況，在 ${flipWindowText(game.mods)} 進度回來按 F 翻炒，品質獎勵 +${Math.round(game.mods.qualityBonus * 100)}%。` : drinksOnMenu ? '青菜和蔥要先切。雞蛋與醬油可直接下鍋。果汁在調配台一次調一杯，不用餐盤，直接送到出餐口。' : '青菜、蔥、牛肉和雞肉要先切。雞蛋、白飯、九層塔與三杯醬可直接下鍋。';
+    $('tip').textContent = woks.some(w => w.state === 'ready') ? '餐盤架在中島前側。拿空盤，回到完成的鍋按 E 盛裝，再送到右側出餐口。' : woks.some(w => w.state === 'cooking') ? `每口鍋獨立計時。看下方鍋況，在 ${flipWindowText(game.mods)} 進度回來按 F 翻炒，品質獎勵 +${Math.round(game.mods.qualityBonus * 100)}%。` : drinksOnMenu ? '青菜和蔥要先切。雞蛋與醬油可直接下鍋。果汁在調配台一次調一杯，不用餐盤，直接送到出餐口。' : '青菜、蔥、牛肉和雞肉要先切。雞蛋、白飯、九層塔與三杯醬可直接下鍋。';
     $('wok-status').innerHTML = Object.entries(game.woks).map(([id, w], i) => {
       const dish = w.recipe ? menuOffer(w.recipe).name : '';
       let state = '空鍋 · 等待食材';
@@ -491,6 +548,9 @@
       const bar = game.stations.find(st => st.type === 'juice');
       const over = juiceOvershot(bar.mix);
       $('wok-status').innerHTML = juiceMeasureLines(bar.mix).map(line => `<div class="wok-chip measure${over ? ' over' : ''}"><b>果汁台</b><span>${line}</span></div>`).join('');
+    } else if (game.level.measure === 'sauceMix') {
+      const bowl=game.stations.find(st=>st.type==='sauceMix');
+      $('wok-status').innerHTML='<div class="wok-chip measure"><b>調醬碗</b><span>'+(bowl.item?'完成！E 拿起驗收':sauceMixLines(game.level,bowl).join(' · '))+'</span></div>';
     } else if (game.level.measure === 'sauce') {
       const cup = game.stations.find(st => st.id === 'counter');
       const over = cup.spoons > (SAUCE_SPOONS[cup.sauceId] || Infinity);
@@ -504,7 +564,7 @@
       $('order-count').textContent = `${game.served} / ${total} 份`;
       $('orders').innerHTML = game.level.goals.map(g => {
         const item = ITEMS[g.id];
-        const recipe = item.portion ? `每份 ${item.spoons} 大匙（約 ${item.cc} cc） · ` : juiceTargetText(g.id) ? `${juiceTargetText(g.id)} · ` : '';
+        const recipe = Number.isFinite(item.spoons) && Number.isFinite(item.cc) ? `每份 ${item.spoons} 大匙（約 ${item.cc} cc） · ` : juiceTargetText(g.id) ? `${juiceTargetText(g.id)} · ` : '';
         return `<article class="order"><h3>${item.name}</h3><p>${recipe}已驗收 ${game.delivered[g.id] || 0} / ${g.count} 份</p></article>`;
       }).join('');
       $('tip').textContent = game.level.tip;
@@ -601,15 +661,15 @@
     if (chopTimer >= .2) { chopTimer = 0; sound('chop'); }
   }
   function draw() {
-    art.draw(game, player, target, keys, running, ended);
+    art.draw(game, player, target, keys, running && !supplyOpen, ended);
     $('interaction').textContent = prompt();
   }
   function frame(now){
     const dt=Math.min((now-last)/1000,.25);last=now;
-    const active=running&&!game.paused&&!ended;
+    const active=running&&!game.paused&&!ended&&!supplyOpen;
     if(active){move(dt);game.tick(dt,keys.has('f')&&target?target.id:null);drainEvents();art.observe(game);chopSound(dt);if(session.kind==='quiz'&&game.clock>=session.quiz.limit)game.finish();if(game.phase==='ended')finish();hudTimer+=dt;if(hudTimer>.15){updateHUD();hudTimer=0;}}
     sfx.ambience(active?Object.values(game.woks).filter(w=>w.state==='cooking').length:0,active&&(game.phase==='service'||game.phase==='closing'));
-    art.update(dt, !game.paused && !ended);
+    art.update(dt, !game.paused && !ended && !supplyOpen);
     if(now>toastUntil)$('toast').classList.remove('show');draw();requestAnimationFrame(frame);
   }
   canvas.tabIndex = 0;

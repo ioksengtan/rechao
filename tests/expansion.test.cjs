@@ -56,12 +56,7 @@ test('levels restrict supplies, menus, order limits and provide all recipes fair
     const g = new Kitchen(() => .5, level.id);
     assert.equal(Object.keys(g.woks).length, level.woks);
     if (level.mode === 'training') { g.addOrder(); assert.equal(g.orders.length, 0); assert.ok(!g.stations.some(s => s.type === 'wok' || s.type === 'plates')); continue; }
-    for (const s of g.stations.filter(s => s.type === 'supply')) {
-      assert.ok(level.menu.some(key => {
-        const offer = menuOffer(key);
-        return offer.ingredients.includes(s.supply) || offer.ingredients.includes(ITEMS[s.supply].processed);
-      }));
-    }
+    assert.deepEqual(g.stations.filter(s=>s.type==='supply').map(s=>s.id),getStations(LEVELS[0]).filter(s=>s.type==='supply').map(s=>s.id));
     const recipes = new Set();
     for (let i=0; i<level.menu.length; i++) { g.addOrder(); recipes.add(g.orders[0].recipe); g.orders = []; }
     assert.deepEqual([...recipes].sort(), [...level.menu].sort());
@@ -96,20 +91,29 @@ test('progress persists per level, keeps best scores and tolerates old or malfor
 
 test('every workstation has a reachable interaction spot in every level', () => {
   for(const level of LEVELS){
-    const stations=getStations(level), start=createPlayer();assert.equal(blocked(start.x,start.y,stations),false);
+    for(const stations of [require('../game-core.js').getInteractiveStations(getStations(level))]) { const start=createPlayer();assert.equal(blocked(start.x,start.y,stations),false);
     const queue=[[start.x,start.y]],seen=new Set([`${start.x},${start.y}`]),reachable=new Set();
     for(let index=0;index<queue.length;index++){
       const [x,y]=queue[index];
       for(const s of stations){const dx=s.x*60+30-x,dy=s.y*60+30-y,len=Math.hypot(dx,dy);if(len<93){const t=findTarget({x,y,dx:dx/len,dy:dy/len},stations);if(t)reachable.add(t.id);}}
       for(const [dx,dy]of[[15,0],[-15,0],[0,15],[0,-15]]){const nx=x+dx,ny=y+dy,key=`${nx},${ny}`;if(!seen.has(key)&&!blocked(nx,ny,stations)){seen.add(key);queue.push([nx,ny]);}}
     }
-    assert.deepEqual([...reachable].sort(),stations.map(s=>s.id).sort(),level.id);
+    assert.deepEqual([...reachable].sort(),stations.map(s=>s.id).sort(),level.id); }
   }
 });
 
 test('movement normalizes diagonals, faces stations and cannot cross a stove on a slow frame', () => {
-  const straight=createPlayer(),diagonal=createPlayer();movePlayer(straight,new Set(['d']),[],.5);movePlayer(diagonal,new Set(['d','s']),[],.5);
-  assert.ok(Math.abs(Math.hypot(diagonal.x-480,diagonal.y-420)-(straight.x-480))<.001);
-  const stations=getStations(LEVELS[2]),p={x:630,y:360,dx:0,dy:-1,walk:0};movePlayer(p,new Set(['w']),stations,1);
-  assert.ok(p.y>=312);assert.equal(findTarget(p,stations).id,'wok');
+  const start=createPlayer(),straight=createPlayer(),diagonal=createPlayer();movePlayer(straight,new Set(['d']),[],.2);movePlayer(diagonal,new Set(['d','s']),[],.2);
+  assert.ok(Math.abs(Math.hypot(diagonal.x-start.x,diagonal.y-start.y)-(straight.x-start.x))<.001);
+  const stations=getStations(LEVELS[2]),p={x:450,y:240,dx:0,dy:-1,walk:0};movePlayer(p,new Set(['w']),stations,1);
+  assert.ok(p.y>=142);assert.equal(findTarget(p,stations).id,'wok');
+});
+
+ test('fixed furniture blocks walking through the island, sink, fridge and stools even in lessons', () => {
+  const stations=getStations(LEVELS.find(l=>l.id==='prep-school'));
+  for(const [x,y] of [[510,370],[90,420],[900,80]]) assert.ok(blocked(x,y,stations));
+  const p={x:240,y:400,dx:1,dy:0,walk:0}; movePlayer(p,new Set(['d']),stations,2);
+  assert.ok(p.x<=333,'a slow frame cannot cross the island');
+  assert.equal(blocked(240,400,stations),false,'left island aisle is open');
+  assert.equal(blocked(720,400,stations),false,'right island aisle is open');
 });

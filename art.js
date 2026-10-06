@@ -1,15 +1,21 @@
 /* Original watercolor kitchen. Ink weight, washes and furniture silhouettes only — never changes simulation state. */
 (function (root) {
   'use strict';
-  const WIDTH = 1160, HEIGHT = 720, OFFSET = { x: 24, y: 78 };
+  const WIDTH = 1160, HEIGHT = 900, OFFSET = { x: 24, y: 78 };
   const P = {
-    ink: '#3a4238', inkSoft: '#5e6758', paper: '#f6f1e6', cream: '#fbf7f0',
-    sage: '#8fa898', sageDeep: '#6f8774', sageLite: '#c5d4c4', sagePanel: '#a9bda8',
+    ink: '#49483e', inkSoft: '#797668', paper: '#faf8f2', cream: '#fbf7f0',
+    sage: '#a5a895', sageDeep: '#7f8471', sageLite: '#d4d4c4', sagePanel: '#b9bcaa',
     stone: '#f4efe6', vein: '#ddd4c4', wood: '#e7d3b2', woodDeep: '#c4a078',
     woodLine: '#b08960', brass: '#c4a15a', brassDeep: '#8d6b34', terra: '#a85c48',
     iron: '#3c4740', steel: '#d7e0d8', floor: '#f3e6cc', shadow: 'rgba(74, 62, 46, 0.16)'
   };
   const FONT = '"Microsoft JhengHei","PingFang TC","WenQuanYi Micro Hei",sans-serif';
+  // A single camera maps simulation positions, furniture and effects into the room.
+  // Simulation coordinates and keyboard/touch directions remain unchanged.
+  function project(x, y, height = 0) {
+    const scale = .78 + .18 * y / 600;
+    return { x: 580 + (x - 480) * scale, y: 270 + y * .95 - height * scale, scale };
+  }
   function rnd(n) {
     const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
     return x - Math.floor(x);
@@ -172,11 +178,12 @@
     ctx.restore();
   }
   function createRenderer(ctx, data) {
-    const { ITEMS, menuOffer, cookDuration, chopDuration, MIX_TIME, juiceMeasureLines, sauceMeasureLine } = data;
+    const { getInteractiveStations, ROOM_LAYOUT, ITEMS, menuOffer, cookDuration, chopDuration, MIX_TIME, juiceMeasureLines, sauceMeasureLine } = data;
     const state = { clock: 0, effects: [], tosses: {}, gesture: null, tables: {}, shake: null, seen: null };
     const REACTIONS = ['好吃！', '讚啦！', '好香喔！', '再來一盤！', '老闆，厲害！', '鍋氣十足！'];
     const HURRY = ['老闆，我的菜呢～', '還要等很久嗎？', '肚子好餓喔……'];
     const at = s => ({ x: s.x * 60 + 30, y: s.y * 60 + 30 });
+    const stationElevation = s => s.type === 'trash' ? 0 : s.x >= 5 && s.x <= 11 && s.y >= 5 ? 74 : 70;
     function leaf(x, y, angle, size, fill) {
       ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
       const pts = [[0, size * .9], [-size * .72, size * .1], [-size * .28, -size * .72], [0, -size], [size * .42, -size * .62], [size * .78, size * .05]];
@@ -267,6 +274,9 @@
           oval(ctx, 0, 1, 12, 6, { color: soy ? '#f0e2c4' : '#f0d2a0', weight: 0.6 });
           label(ctx, soy ? '1' : '2', 0, 1, 11, soy ? '#3e2c24' : '#6a3c28');
         } else bottle(0, 2, soy ? '#4a342c' : '#8d5a40', soy ? '#f3e6c8' : '#f0d2a4', soy ? '油' : '醬', soy ? '#3e2c24' : '#6a3c28');
+      } else if (info.kind === 'mixedSauce') {
+        oval(ctx,0,4,20,11,{color:'#f3ebd9',weight:1});
+        oval(ctx,0,0,17,7,{color:'#b35d3e',weight:.7});
       } else if (info.kind === 'lemon') {
         oval(ctx, 0, 0, 14, 14, { color: '#e6c25e', weight: 1, grad: [[0, '#f6e29a'], [1, '#c9a044']], x0: -10, y0: -10, x1: 10, y1: 12, pools: [[4, 4, 6, 5, '#b08830']] });
         oval(ctx, 0, 0, 9, 9, { color: '#f7efd0', weight: 0.45, amp: 0.25 });
@@ -305,12 +315,13 @@
       hair(ctx, [[x - 6, y - 12], [x - 5, y + 6]], '#fffaf2', 1.1, 0.4);
     }
     function badge(str, x, y, width, fill, color) {
+      width = Math.max(width, str.length * 19 + 16);
       shadow(ctx, x + 1, y + 2, width * 0.42, 8, 0.1);
-      blob(ctx, x - width / 2, y - 12, width, 22, {
+      blob(ctx, x - width / 2, y - 16, width, 30, {
         color: fill || P.cream, rad: 3, amp: 0.28, weight: 0.95,
         grad: [[0, '#fffaf2'], [1, fill || '#efe6d4']], x0: x - width / 2, y0: y - 12, x1: x, y1: y + 10
       });
-      label(ctx, str, x, y - 1, 13, color || P.ink);
+      label(ctx, str, x, y - 1, 19, color || P.ink);
     }
     function measureBadge(text, x, y) {
       const width = Math.min(540, Math.max(96, text.length * 15 + 20));
@@ -330,13 +341,13 @@
     function shaker(x, y, w, h, seed) {
       const lite = rnd(seed) > 0.55;
       blob(ctx, x, y, w, h, {
-        color: lite ? '#c5d6c4' : '#b3c6b4', rad: 2, amp: 0.4, weight: 1.05,
-        grad: [[0, '#e7f0e4'], [0.45, lite ? '#c5d6c4' : '#b7c9b8'], [1, '#8fa898']], x0: x, y0: y, x1: x + w, y1: y + h,
+        color: lite ? '#c0c2ae' : '#aeb29e', rad: 1, amp: 0.3, weight: .75,
+        grad: [[0, '#d6d6c5'], [0.45, lite ? '#bec1ae' : '#aeb29e'], [1, '#8d927e']], x0: x, y0: y, x1: x + w, y1: y + h,
         pools: [[x + w * 0.72, y + h * 0.78, w * 0.22, h * 0.22, '#6d8470']], bleedAlpha: 0.08
       });
       const m = 4.5;
       if (w > 16 && h > 14) {
-        blob(ctx, x + m, y + 3.5, w - m * 2, h - 9, { color: '#dce8da', rad: 1.2, amp: 0.25, weight: 0.65, bleedAlpha: 0.04, inkColor: '#6d8470' });
+        blob(ctx, x + m, y + 3.5, w - m * 2, h - 9, { color: '#b6baa5', rad: .5, amp: 0.2, weight: 0.6, bleedAlpha: 0.04, inkColor: '#737965' });
         knob(x + w / 2, y + h * 0.72);
       }
     }
@@ -405,7 +416,7 @@
       hair(ctx, [[x - 8, y + 2], [x + 2, y + 6]], '#e7d8c4', 0.5, 0.6);
     }
     function supply(s, x, y) {
-      const onRun = s.y === 1;
+      const onRun = s.builtIn || s.y === 1;
       const cy = onRun ? y - 18 : y - 8;
       if (!onRun) {
         shadow(ctx, x, y + 18, 28, 8, 0.12);
@@ -447,9 +458,13 @@
     }
     function drawWok(s, x, y, w, mods) {
       const hot = w.state === 'cooking' || w.state === 'ready';
+      if (!s.builtIn) {
       shadow(ctx, x + 2, y + 28, 36, 9, 0.16);
-      shaker(x - 30, y + 2, 28, 24, x);
-      shaker(x + 2, y + 2, 28, 24, x + 9);
+      blob(ctx, x - 30, y + 1, 60, 33, { color: '#b7bab0', rad: 1, amp: .25, weight: .8,
+        grad: [[0,'#e4e3d7'],[.5,'#c7c8bb'],[1,'#969c90']] });
+      blob(ctx, x - 23, y + 14, 46, 15, { color: '#565c53', rad: 1, amp: .2, weight: .7 });
+      hair(ctx, [[x-18,y+18],[x+18,y+18]], '#afb3a4', 1, .7);
+      hair(ctx, [[x-20,y+12],[x+20,y+12]], '#605f52', 1.6, .8);
       stoneTop(x - 34, y - 18, 68, 22);
       blob(ctx, x - 28, y - 14, 56, 16, {
         color: '#c5d2cb', rad: 2, amp: 0.3, weight: 0.6, inkColor: '#7e9086',
@@ -457,7 +472,8 @@
       });
       ink(ctx, ovalPts(x, y - 6, 16, 8, 0.25), 0.7, true, '#6e8076');
       ink(ctx, ovalPts(x, y - 6, 8, 4, 0.2), 0.45, true, '#8aa098');
-      if (hot) fire(x, y + 14);
+      }
+      if (hot) fire(x, y + 5);
       const toss = state.tosses[s.id] || 0, arcLift = toss > 0 ? Math.sin((1 - toss / 0.65) * Math.PI) : 0;
       ctx.save(); ctx.translate(x, y - 10 - arcLift * 5); ctx.rotate(-arcLift * 0.12);
       blob(ctx, 16, -2, 20, 6, { color: '#a8845c', rad: 2, amp: 0.25, weight: 0.7, pools: [[24, 0, 6, 2, '#6d5434']] });
@@ -478,8 +494,7 @@
       } else if (w.recipe) dish(w.recipe, 0, 0, 0.78, false);
       else w.ingredients.forEach((id, i) => item(id, (i - (w.ingredients.length - 1) / 2) * 13, 0, 0.52));
       ctx.restore(); ctx.restore();
-      knob(x - 16, y + 14);
-      label(ctx, s.id === 'wok' ? '01' : '02', x + 16, y + 16, 10, '#3e4c42');
+      if (!s.builtIn) for (const dx of [-21,-7,7,21]) knob(x + dx, y + 7);
       if (hot) steam(x, y - 28);
       if (w.state === 'burned') { steam(x, y - 26, 0.75, true); badge('焦鍋 · 清理', x, y - 52, 98, '#f0ddd2', '#6d3e32'); }
       if (w.state === 'cooking') {
@@ -504,7 +519,15 @@
       const x = s.x * 60 + 30, y = s.y * 60 + 30;
       const focused = active && target?.id === s.id;
       if (focused) focusMark(x, y);
-      if (s.type === 'supply') supply(s, x, y);
+      if(s.type==='supplyGroup') {
+        if(s.id==='seasoning') {
+          oval(ctx,x,y,45,17,{color:'#c7af85',weight:1});
+          for(const [i,id] of s.members.slice(0,5).entries()){const source=game.stations.find(st=>st.id===id);item(source.supply,x-30+i*15,y-13,.52);}
+        } else if(s.id==='pantry') {
+          basket(x,y,30,15);
+          for(const [i,id] of s.members.slice(0,3).entries()){const source=game.stations.find(st=>st.id===id);item(source.supply,x-17+i*17,y-8,.48);}
+        }
+      } else if (s.type === 'supply') { if (s.x < 13) supply(s, x, y); }
       else if (s.type === 'wok') drawWok(s, x, y, game.woks[s.id], game.mods);
       else if (s.type === 'trash') {
         shadow(ctx, x + 2, y + 22, 22, 7, 0.14);
@@ -515,6 +538,7 @@
         ink(ctx, ovalPts(x, y - 10, 16, 6, 0.3), 0.9, true, '#6e7e76');
         ink(ctx, [[x - 14, y - 16], [x - 10, y - 22], [x + 10, y - 22], [x + 14, y - 16]], 0.8, false, '#6e7e76');
       } else if (s.type === 'board') {
+        if (!s.builtIn) { shaker(x - 30, y + 4, 60, 30, x + y); stoneTop(x - 34, y - 18, 68, 24); }
         shadow(ctx, x + 2, y + 16, 30, 8, 0.14);
         blob(ctx, x - 30, y - 6, 60, 10, { color: '#b4895c', rad: 2, amp: 0.3, weight: 0.5 });
         blob(ctx, x - 32, y - 22, 64, 28, {
@@ -538,10 +562,13 @@
         if (s.progress > 0 && s.item && !ITEMS[s.item.id].chopped) bar(x, y - 42, s.progress / chopDuration(s.item, game.mods));
         if (s.item && (s.item.count || 1) > 1) badge(`×${s.item.count}`, x + 22, y - 24, 32, '#f6e6c0', '#6d5434');
       } else if (s.type === 'counter') {
+        if (s.builtIn) blob(ctx,x-28,y-24,56,32,{color:'#e5ddc5',rad:4,amp:.3,weight:.8,inkColor:'#a49c81'});
+        if (!s.builtIn) {
         shadow(ctx, x + 2, y + 20, 30, 8, 0.13);
         shaker(x - 26, y - 2, 24, 22, x);
         shaker(x + 2, y - 2, 24, 22, x + 4);
         stoneTop(x - 30, y - 22, 60, 22);
+        }
         if (s.spoons > 0) {
           const soy = s.sauceId === 'soy';
           oval(ctx, x, y - 12, 14, 8, { color: soy ? '#3e2c24' : '#7a4c38', weight: 0.8 });
@@ -549,6 +576,11 @@
           measureBadge(sauceMeasureLine ? sauceMeasureLine(s) : `${s.spoons} 大匙`, x, y - 52);
         } else if (s.item) item(s.item.id, x, y - 16, 0.9);
         if (s.item && (s.item.count || 1) > 1 && !(s.spoons > 0)) badge(`×${s.item.count}`, x + 22, y - 26, 32, '#f6e6c0', '#6d5434');
+      } else if (s.type === 'sauceMix') {
+        oval(ctx,x,y,28,16,{color:'#f3ebd9',weight:1});
+        oval(ctx,x,y-5,24,11,{color:s.item||Object.keys(s.mix).length?'#b35d3e':'#ded8c9',weight:.7});
+        if(s.item) item(s.item.id,x,y-14,.8);
+        if(s.progress>0)bar(x,y-35,s.progress/MIX_TIME);
       } else if (s.type === 'plates') {
         shadow(ctx, x, y + 18, 26, 7, 0.12);
         blob(ctx, x - 28, y + 4, 56, 8, { color: '#c4a078', rad: 2, amp: 0.3, weight: 0.7 });
@@ -569,10 +601,12 @@
         oval(ctx, x + 20, y + 8, 7, 4, { color: '#d7be78', weight: 0.6 });
         oval(ctx, x + 20, y + 4, 2, 2.2, { color: P.brass, weight: 0.4 });
       } else if (s.type === 'juice') {
+        if (!s.builtIn) {
         shadow(ctx, x + 1, y + 16, 28, 8, 0.12);
         shaker(x - 26, y, 22, 20, x);
         shaker(x - 2, y, 26, 20, x + 6);
         stoneTop(x - 28, y - 20, 56, 22);
+        }
         const glass = [[x - 8, y - 18], [x + 8, y - 18], [x + 6, y - 2], [x - 6, y - 2]].map(p => wob(p[0], p[1], 0.3));
         paint(ctx, glass, { color: 'rgba(247,250,248,0.9)', weight: 0.7, inkColor: '#7e9086' });
         if (s.item) item(s.item.id, x, y - 12, 0.62);
@@ -581,8 +615,8 @@
         if (s.progress > 0 && !s.item) bar(x, y - 44, s.progress / MIX_TIME, '#7ec8c0');
         if (s.mix && juiceMeasureLines && ['lemon', 'plum', 'syrup', 'ice'].some(id => s.mix[id] > 0)) juiceMeasureLines(s.mix).forEach((line, i, list) => measureBadge(line, x, y - 66 - (list.length - 1 - i) * 26));
       }
-      const width = Math.max(72, s.name.length * 15 + 14);
-      badge(s.name, x, y + 50, width, focused ? '#f8efd8' : '#f7f3ea', focused ? '#6d5432' : P.ink);
+      if (focused) badge(s.name, x, y + 48, Math.max(76, s.name.length * 14 + 14), '#fffaf0', '#60513b');
+      else label(ctx, s.name, x, y + (s.builtIn ? 24 : 45), 22, '#393b32', 'center', 700);
     }
     function lantern(x, y, word) {
       shadow(ctx, x + 3, y + 18, 16, 8, 0.12);
@@ -598,19 +632,20 @@
       hair(ctx, [[x, y + 22], [x - 2, y + 32], [x + 1, y + 36]], P.brass, 0.8, 0.8);
       label(ctx, word, x, y, 15, '#f8e7c0');
     }
-    function stool(x, y) {
-      shadow(ctx, x + 1, y + 8, 14, 5, 0.12);
-      oval(ctx, x, y, 13, 8, {
-        color: '#e2c9a0', weight: 0.8, amp: 0.35,
-        grad: [[0, '#f6e6cc'], [1, '#c9aa78']], x0: x - 10, y0: y - 6, x1: x + 8, y1: y + 6
-      });
-      ctx.save(); ell(ctx, x, y, 11, 6.5); ctx.clip();
-      for (let i = -2; i <= 2; i++) hair(ctx, [[x - 12, y + i * 3], [x + 12, y + i * 3]], '#a88860', 0.45, 0.55);
-      for (let i = -3; i <= 3; i++) hair(ctx, [[x + i * 4, y - 8], [x + i * 4, y + 8]], '#a88860', 0.4, 0.4);
+    function stool(x,y) {
+      shadow(ctx,x+1,y+53,23,7,.12);
+      for(const [dx,dy] of [[-15,-2],[15,-2],[-16,6],[16,6]]) {
+        hair(ctx,[[x+dx,y+dy],[x+dx*1.3,y+53]],'#8b7654',3,.9);
+        hair(ctx,[[x+dx+1,y+dy],[x+dx*1.3+1,y+52]],'#d8bd8e',1,.8);
+      }
+      hair(ctx,[[x-20,y+35],[x+20,y+35]],'#9d8259',2,.85);
+      oval(ctx,x,y,24,15,{color:'#d8bc8d',weight:.9,amp:.35,grad:[[0,'#eddbb8'],[1,'#bfa074']],x0:x-20,y0:y-10,x1:x+18,y1:y+12});
+      ctx.save();ell(ctx,x,y,21,12);ctx.clip();
+      for(let i=-5;i<=5;i++) {
+        hair(ctx,[[x-23,y+i*3],[x+23,y+i*3]],'#997d54',.55,.6);
+        hair(ctx,[[x+i*4,y-15],[x+i*4,y+15]],'#efe0bc',.65,.8);
+      }
       ctx.restore();
-      hair(ctx, [[x - 8, y + 4], [x - 10, y + 14]], '#8d6a44', 1.1, 0.8);
-      hair(ctx, [[x + 8, y + 4], [x + 10, y + 14]], '#8d6a44', 1.1, 0.8);
-      hair(ctx, [[x, y + 5], [x, y + 15]], '#8d6a44', 1, 0.7);
     }
     function guest(x, y, angle, color, index) {
       ctx.save(); ctx.translate(x, y + Math.sin(state.clock * 1.3 + index) * 0.7); ctx.rotate(angle);
@@ -649,47 +684,9 @@
       leaf(x + w * 0.4, y + h * 0.55, -0.4, h * 0.28, '#6e9460');
       leaf(x + w * 0.62, y + h * 0.5, 0.5, h * 0.22, '#8aaa78');
     }
-    function dining(game) {
-      blob(ctx, 1005, 86, 143, 560, { color: '#f3e6cc', rad: 2, amp: 0.4, weight: 0, bleed: false });
-      ctx.save(); ctx.beginPath(); ctx.rect(1008, 90, 136, 552); ctx.clip();
-      floorBoards(1008, 90, 136, 552, 11);
-      ctx.restore();
-      ink(ctx, rectPts(1005, 86, 143, 560, 0.6, 2), 1.15, true);
-      blob(ctx, 1016, 96, 120, 32, { color: P.sageDeep, rad: 2, amp: 0.3, weight: 0.8, pools: [[1070, 112, 30, 8, '#4e6454']] });
-      label(ctx, '內 用 區', 1076, 112, 16, P.cream);
-      rug(1118, 250, 18, 280);
-      const occupied = game.phase === 'service' || game.phase === 'closing';
-      for (let i = 0; i < 3; i++) {
-        const x = 1077, y = 220 + i * 158;
-        stool(x, y - 40); stool(x, y + 34); stool(x - 36, y);
-        if (occupied) {
-          guest(x, y - 36, 0, ['#7f9c94', '#c4a278', '#b48470'][i], i);
-          guest(x, y + 36, Math.PI, ['#d2b48a', '#8aa070', '#8fb0aa'][i], i + 3);
-        }
-        shadow(ctx, x + 2, y + 10, 36, 14, 0.12);
-        oval(ctx, x, y + 2, 34, 20, {
-          color: '#e6cfa8', weight: 1.05, amp: 0.4,
-          grad: [[0, '#f7e6c8'], [1, '#c9aa78']], x0: x - 30, y0: y - 12, x1: x + 20, y1: y + 16,
-          pools: [[x + 10, y + 6, 12, 6, '#b89060']]
-        });
-        for (let g = 0; g < 3; g++) hair(ctx, [[x - 20, y - 4 + g * 5], [x + 22, y - 6 + g * 5]], '#c4a078', 0.55, 0.4);
-        plate(x - 14, y - 4, 0.32); plate(x + 14, y + 6, 0.32);
-        blob(ctx, x - 5, y - 16, 10, 12, { color: '#fbf6ea', rad: 1, amp: 0.2, weight: 0.45, inkColor: '#c4b48a' });
-        label(ctx, String(i + 1), x, y - 10, 9, '#6d6248');
-        const delivery = state.tables[i + 1];
-        if (delivery && state.clock >= delivery.arrivesAt) {
-          if (ITEMS[delivery.recipe]?.kind === 'juice') item(delivery.recipe, x, y, 0.7);
-          else { dish(delivery.recipe, x, y, 0.7); steam(x, y - 8, 0.35); }
-        }
-        const waiting = game.orders.filter(o => o.table === i + 1).length;
-        if (waiting) badge(`${i + 1} 桌 · 等 ${waiting} 道`, x, y + 58, 118, '#f6e6c4', '#6d5a3c');
-      }
-      plant(1076, 640, 0.85);
-      label(ctx, '好菜慢慢吃', 1076, 668, 13, '#6d674c');
-    }
     function floorBoards(x, y, w, h, salt) {
       const boardW = 28;
-      const tones = ['#f7ecd8', '#f0dfc2', '#f4e6ce', '#e8d2ae', '#f8f0e0', '#ead6b2'];
+      const tones = ['#eee3d0', '#eadfc9', '#eee1cd', '#e9dcc5', '#efe4d2', '#eadfc9'];
       ctx.save();
       let col = 0;
       for (let xx = x; xx < x + w - 1; xx += boardW) {
@@ -716,13 +713,13 @@
               ctx.strokeStyle = '#8d6438'; ctx.lineWidth = 0.7; ell(ctx, kx, ky, 3.5, 2.3); ctx.stroke();
             }
             if (y0 > y + 2) {
-              ctx.globalAlpha = 1; ctx.strokeStyle = '#8d6840'; ctx.lineWidth = 1.45;
+              ctx.globalAlpha = 1; ctx.strokeStyle = '#8d6840'; ctx.lineWidth = .55;
               ctx.beginPath(); ctx.moveTo(xx + 1, y0); ctx.lineTo(xx + bw - 1, y0); ctx.stroke();
             }
           }
           yy += len; seg++;
         }
-        ctx.globalAlpha = 1; ctx.strokeStyle = '#8d6840'; ctx.lineWidth = 1.55;
+        ctx.globalAlpha = 1; ctx.strokeStyle = '#8d6840'; ctx.lineWidth = .55;
         ctx.beginPath(); ctx.moveTo(xx + 0.5, y + 1); ctx.lineTo(xx + 0.5, y + h - 1); ctx.stroke();
         col++;
       }
@@ -779,62 +776,180 @@
       label(ctx, '現點現炒', 742, 26, 12, P.inkSoft);
       label(ctx, '大火上桌', 742, 42, 12, P.inkSoft);
     }
-    function scene(game) {
-      ctx.fillStyle = P.paper; ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      ctx.save(); ctx.globalAlpha = 0.35;
-      ell(ctx, 220, 80, 260, 90); ctx.fillStyle = '#f8e6c8'; ctx.fill();
-      ell(ctx, 860, 420, 280, 160); ctx.fillStyle = '#d5e4d4'; ctx.fill();
-      ctx.restore();
-      awning();
-      shopSign();
-      lantern(48, 58, '熱'); lantern(1112, 58, '炒');
-      dining(game);
-      ctx.save(); ctx.translate(OFFSET.x, OFFSET.y);
-      shadow(ctx, 490, 590, 420, 16, 0.08);
-      blob(ctx, 24, 0, 936, 575, { color: '#f7f1e6', rad: 4, amp: 0.6, weight: 1.35 });
-      const floorX = 27, floorY = 37, floorW = 907, floorH = 527;
-      ctx.save(); ctx.beginPath(); ctx.rect(floorX, floorY, floorW, floorH); ctx.clip();
-      floorBoards(floorX, floorY, floorW, floorH, 3);
-      ctx.restore();
-      ink(ctx, rectPts(floorX, floorY, floorW, floorH, 0.5, 1), 0.8, true, '#b08960');
-      blob(ctx, 25, 0, 935, 36, { color: '#f3ece0', rad: 0, amp: 0.3, weight: 0, bleedAlpha: 0.05, pools: [[200, 10, 80, 14, '#e6d8c4']] });
-      tiles(36, 28, 900, 36);
-      cabinetRun(48, 58, 860);
-      frame(470, 4, 42, 30);
-      blob(ctx, 78, 2, 210, 26, { color: '#6f8774', rad: 2, amp: 0.3, weight: 0.7, pools: [[180, 16, 40, 8, '#4e6454']] });
-      label(ctx, '今日推薦  蔥爆牛肉  三杯雞', 182, 15, 12, '#f6f1e4', 'center', 500);
-      oval(ctx, 340, 16, 11, 11, { color: '#fbf6ea', weight: 0.8, inkColor: '#6f8774' });
-      hair(ctx, [[340, 9], [340, 16], [346, 19]], P.ink, 0.9, 0.9);
-      const hoodW = game.level.woks > 1 ? 250 : 120;
-      const hx = 600;
-      blob(ctx, hx, 146, hoodW, 16, {
-        color: '#e2c9a4', rad: 2, amp: 0.35, weight: 0.9, inkColor: '#8d6844',
-        grad: [[0, '#f6e6cc'], [1, '#c9aa78']], x0: hx, y0: 146, x1: hx + hoodW, y1: 162,
-        inside() { for (let i = 0; i < 4; i++) hair(ctx, [[hx + 8, 150 + i * 3], [hx + hoodW - 8, 149 + i * 3]], '#c4a078', 0.5, 0.45); }
-      });
-      blob(ctx, hx + 8, 160, hoodW - 16, 28, { color: '#d5ddd6', rad: 1, amp: 0.3, weight: 0.7, inkColor: '#7e9086' });
-      for (let i = 0; i < (hoodW - 24) / 8; i++) hair(ctx, [[hx + 14 + i * 8, 164], [hx + 14 + i * 8, 184]], '#8aa098', 0.7, 0.55);
-      blob(ctx, hx + hoodW / 2 - 18, 186, 36, 4, { color: P.brass, rad: 1, amp: 0.2, weight: 0.4 });
-      rug(560, 300, game.level.woks > 1 ? 250 : 130, 22);
-      blob(ctx, 934, 250, 24, 150, { color: '#e7d3b4', rad: 1, amp: 0.3, weight: 0.7, inkColor: '#8d6844', inside() {
-        for (let i = 0; i < 5; i++) hair(ctx, [[938, 260 + i * 26], [954, 258 + i * 26]], '#c4a078', 0.6, 0.45);
-      } });
-      knob(952, 320);
-      label(ctx, '外場接菜 →', 900, 430, 12, '#6d6754');
-      ctx.restore();
-      ctx.save(); ctx.beginPath(); ctx.rect(0, 668, 1000, 52); ctx.clip();
-      for (let i = 0; i < 8; i++) {
-        for (let j = 0; j < 3; j++) {
-          const x = i * 128 - (j % 2) * 40, y = 668 + j * 18;
-          blob(ctx, x, y, 120, 16, { color: j % 2 ? '#d9d3c6' : '#e6e0d4', rad: 1, amp: 0.35, weight: 0.4, inkColor: '#b7b0a2', bleedAlpha: 0.04 });
+    // Straight architectural edges keep the room readable beneath the loose washes.
+    function polygon(points, fill, stroke = '#827b68', weight = .75) {
+      ctx.beginPath(); ctx.moveTo(...points[0]);
+      for (const point of points.slice(1)) ctx.lineTo(...point);
+      ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+      // Pigment gathers unevenly inside large architectural surfaces.
+      const xs=points.map(p=>p[0]), ys=points.map(p=>p[1]);
+      const x0=Math.min(...xs), y0=Math.min(...ys), w=Math.max(...xs)-x0, h=Math.max(...ys)-y0;
+      if (w*h > 2200 && !fill.startsWith('rgba')) {
+        ctx.save(); ctx.clip();
+        const wash=linear(ctx,x0,y0,x0+w*.8,y0+h,[[0,'rgba(255,253,235,.20)'],[.55,'rgba(174,155,121,.02)'],[1,'rgba(75,70,49,.10)']],fill);
+        ctx.fillStyle=wash; ctx.fillRect(x0,y0,w,h);
+        for(let i=0;i<Math.min(150,w*h/100);i++) {
+          const xx=x0+rnd(i*3+x0)*w, yy=y0+rnd(i*7+y0)*h;
+          ctx.globalAlpha=.035; ctx.fillStyle=i%2?'#fdf9e9':'#81795e';
+          ctx.beginPath(); ctx.ellipse(xx,yy,2+rnd(i+5)*10,1+rnd(i+8)*4,0,0,Math.PI*2); ctx.fill();
+        }
+        ctx.restore();
+      }
+      if (weight) {
+        ctx.beginPath(); ctx.moveTo(...points[0]);
+        for (const point of points.slice(1)) ctx.lineTo(...point);
+        ctx.closePath(); ctx.strokeStyle=stroke; ctx.lineWidth=weight; ctx.stroke();
+      }
+    }
+    function roomPoint(x, y, z = 0) { const p = project(x, y, z); return [p.x, p.y]; }
+    function plane(points, fill, stroke, weight) { polygon(points.map(p => roomPoint(...p)), fill, stroke, weight); }
+    function roomLine(points, color = '#a59a85', weight = .6, alpha = .6) {
+      ctx.save(); ctx.globalAlpha = alpha; ctx.beginPath();
+      const p = points.map(p => roomPoint(...p)); ctx.moveTo(...p[0]);
+      for (const point of p.slice(1)) ctx.lineTo(...point);
+      ctx.strokeStyle = color; ctx.lineWidth = weight; ctx.stroke(); ctx.restore();
+    }
+    function cabinetBox(r, height = 70, fill = '#aeb19d') {
+      const {x,y,w,h}=r;
+      plane([[x,y+h,0],[x+w,y+h,0],[x+w,y+h,height],[x,y+h,height]],fill,'#777864',.8);
+      plane([[x+w,y,0],[x+w,y+h,0],[x+w,y+h,height],[x+w,y,height]],'#989f88','#747b67',.8);
+      for(let xx=x;xx<x+w-10;xx+=75) {
+        const right=Math.min(x+w-5,xx+70);
+        plane([[xx+5,y+h,7],[right,y+h,7],[right,y+h,height-7],[xx+5,y+h,height-7]],'#b9bca7','#787d68',.65);
+        plane([[xx+12,y+h+.1,15],[right-7,y+h+.1,15],[right-7,y+h+.1,height-18],[xx+12,y+h+.1,height-18]],'#aeb49c','#898e79',.55);
+        roomLine([[xx+14,y+h+1,height-10],[right-9,y+h+1,height-10]],'#8f7851',2,.8);
+      }
+      for(let yy=y;yy<y+h-15;yy+=80) {
+        const end=Math.min(y+h-5,yy+74);
+        plane([[x+w,yy+5,8],[x+w,end,8],[x+w,end,height-8],[x+w,yy+5,height-8]],'#a7ae97','#737b65',.55);
+        plane([[x+w+.1,yy+12,16],[x+w+.1,end-7,16],[x+w+.1,end-7,height-19],[x+w+.1,yy+12,height-19]],'#b2b7a0','#828b73',.45);
+      }
+      plane([[x-4,y-3,height],[x+w+4,y-3,height],[x+w+4,y+h+4,height],[x-4,y+h+4,height]],'#f4f0e6','#7c7666',.9);
+      plane([[x-4,y+h+4,height],[x+w+4,y+h+4,height],[x+w+4,y+h+4,height-4],[x-4,y+h+4,height-4]],'#d2ccbd','#8e8777',.55);
+      for(let i=0;i<9;i++) {
+        const xx=x+8+rnd(i+x)*Math.max(1,w-55), yy=y+8+rnd(i+y)*Math.max(1,h-25);
+        roomLine([[xx,yy,height+.1],[xx+15,yy+4,height+.1],[Math.min(x+w-5,xx+40),yy+2,height+.1]],'#c7c0b1',.5,.45);
+      }
+    }
+    function island() { cabinetBox(ROOM_LAYOUT.island,74); }
+    function room() {
+      ctx.fillStyle=P.paper; ctx.fillRect(0,0,WIDTH,HEIGHT);
+      label(ctx,'巷 口 熱 炒',580,39,25,'#48473e','center',500);
+      label(ctx,'ALEX’S KITCHEN  /  料理日常',580,67,10,'#898371','center',400);
+      hair(ctx,[[210,88],[515,88]],'#a69c85',.6,.65); hair(ctx,[[645,88],[950,88]],'#a69c85',.6,.65);
+      leaf(538,88,-.6,6,'#9da18a'); leaf(621,88,.6,6,'#9da18a');
+      plane([[0,0,0],[960,0,0],[960,0,165],[0,0,165]],'#eeeade');
+      plane([[0,0,0],[0,600,0],[0,600,165],[0,0,165]],'#e5e0d2');
+      plane([[960,0,0],[960,600,0],[960,600,165],[960,0,165]],'#f1eee4');
+      plane([[0,0,0],[960,0,0],[960,600,0],[0,600,0]],'#e9d8bc');
+      const tones=['#eadbc3','#e7d5b9','#efdfc7','#e9d8bd','#ebdcc4'];
+      for(let row=0;row<25;row++) {
+        const y=row*24;
+        plane([[0,y,0],[960,y,0],[960,y+24,0],[0,y+24,0]],tones[row%tones.length],'#bfae93',.35);
+        for(let x=(row%3)*105+70;x<960;x+=310) roomLine([[x,y,0],[x,y+24,0]],'#aa9678',.45,.55);
+        for(let k=0;k<6;k++) {
+          const x=rnd(row*7+k)*880, yy=y+5+rnd(row+k+9)*14;
+          roomLine([[x,yy,0],[x+35,yy+.6,0],[Math.min(960,x+95),yy,0]],'#b9a180',.45,.22);
         }
       }
+      plane([[0,220,0],[230,270,0],[420,520,0],[0,475,0]],'rgba(255,253,236,.24)','',0);
+      for(const x of [0,960]) {
+        roomLine([[x,0,0],[x,600,0]],'#8c816c',1,.8);
+        roomLine([[x,0,8],[x,600,8]],'#b7ae9c',3,.6);
+      }
+      // The right-hand opening and runner match the reference room's circulation.
+      plane([[960,300,6],[960,505,6],[960,505,168],[960,300,168]],'#e1e1d5','#7a7a69',1);
+      for(const yy of [305,405,500]) roomLine([[960,yy,9],[960,yy,167]],'#fffaf0',5,1);
+      for(const z of [12,90,165]) roomLine([[960,305,z],[960,500,z]],'#fffaf0',4,1);
+      plane([[775,320,0],[875,320,0],[875,552,0],[775,552,0]],'#cabd9f','#9f8f70',.7);
+      for(let y=325;y<552;y+=6) roomLine([[779,y,0],[871,y,0]],'#968b70',.45,.33);
+      for(let x=780;x<875;x+=7) roomLine([[x,324,0],[x,549,0]],'#eee3ca',.45,.6);
+      // Full-height left window over the sink.
+      plane([[0,255,65],[0,462,65],[0,462,218],[0,255,218]],'#fbf8ed','#747465',1);
+      plane([[0,265,76],[0,452,76],[0,452,208],[0,265,208]],'#dce0ce','#9ca088',.65);
+      for(let y=275;y<450;y+=25) roomLine([[0,y,80],[0,y+16,182]],'#96a085',1,.4);
+      roomLine([[0,357,71],[0,357,213]],'#fcfaf2',5,1);
+      roomLine([[0,261,145],[0,457,145]],'#fcfaf2',4,1);
+      roomLine([[0,250,65],[0,467,65]],'#918775',4,.8);
+      // Backsplash, cupboards either side of a central chimney hood.
+      for(let z=70;z<127;z+=14) for(let x=40;x<760;x+=34)
+        plane([[x,12,z],[x+33,12,z],[x+33,12,z+13],[x,12,z+13]],'#f7f3e9','#d3ccba',.35);
+      for(const [x,w] of [[48,325],[625,125]]) {
+        plane([[x,10,126],[x+w,10,126],[x+w,10,218],[x,10,218]],'#a9ad99');
+        plane([[x,10,218],[x+w,10,218],[x+w,35,218],[x,35,218]],'#d0d0bf');
+        const count=Math.max(1,Math.round(w/100)), dw=w/count;
+        for(let i=0;i<count;i++) {
+          const xx=x+i*dw;
+          plane([[xx+3,35,129],[xx+dw-3,35,129],[xx+dw-3,35,214],[xx+3,35,214]],'#b8bba7','#727662',.9);
+          plane([[xx+11,35,138],[xx+dw-11,35,138],[xx+dw-11,35,205],[xx+11,35,205]],'#aeb29d','#7e826f',.6);
+          const handle=project(xx+dw-17,36,147); knob(handle.x,handle.y);
+        }
+      }
+      cabinetBox(ROOM_LAYOUT.back);
+      cabinetBox({x:45,y:130,w:95,h:65});
+      // Open dry-storage rack occupies the former sink run.
+      for(const z of [8,38,70]) {
+        plane([[45,205,z],[140,205,z],[140,550,z],[45,550,z]],'#c8b18b','#7c6e55',.9);
+      }
+      for(const y of [205,315,425,550]) {
+        plane([[45,y,0],[140,y,0],[140,y,70],[45,y,70]],'#c0a580','#75684f',.7);
+      }
+      // Dark open cubbies and exposed shelf edges facing the aisle.
+      plane([[141,205,4],[141,550,4],[141,550,68],[141,205,68]],'#655e4c','#776c55',.5);
+      for(const z of [8,38,70]) plane([[142,205,z],[142,550,z],[142,550,z+4],[142,205,z+4]],'#dac29a','#827154',.8);
+      for(const y of [205,315,425,545]) plane([[143,y,0],[143,y+5,0],[143,y+5,74],[143,y,74]],'#d0b88e','#827154',.6);
+      for(const y of [254,366,476]) {
+        const p=project(130,y,22);basket(p.x,p.y,16,10);
+      }
+      // Central oven and hood; the functional pans are drawn above this built-in range.
+      plane([[403,131,0],[607,131,0],[607,131,70],[403,131,70]],'#bfc2b9','#686d63',.8);
+      plane([[418,132,9],[592,132,9],[592,132,45],[418,132,45]],'#4c524a','#6e7267',.9);
+      plane([[429,133,16],[581,133,16],[581,133,36],[429,133,36]],'#74796b','#9ca18e',.4);
+      roomLine([[425,134,49],[585,134,49]],'#62675d',3,.95);
+      for(let x=428;x<598;x+=40) { const h=project(x,134,59); knob(h.x,h.y); }
+      plane([[418,10,143],[593,10,143],[568,10,181],[444,10,181]],'#efeee4','#8d8a78',.8);
+      plane([[444,10,181],[568,10,181],[568,10,241],[444,10,241]],'#f6f3e9','#8d8a78',.8);
+      plane([[418,10,143],[593,10,143],[604,58,138],[408,58,138]],'#c7b395','#8d7a5c',.9);
+      roomLine([[414,58,137],[600,58,137]],'#9c8560',4,.8);
+      // Tall refrigerator on the back right, with brushed-metal double doors.
+      const f=ROOM_LAYOUT.fridge, front=f.y+f.h, rear=f.y;
+      plane([[f.x,rear,0],[f.x,rear,240],[f.x,front,240],[f.x,front,0]],'#b9bbae','#767b6d',.9);
+      plane([[f.x,rear,240],[f.x+f.w,rear,240],[f.x+f.w,front,240],[f.x,front,240]],'#c7cabb','#858b79',.7);
+      plane([[f.x,front,0],[f.x+f.w,front,0],[f.x+f.w,front,240],[f.x,front,240]],'#c6c9bd','#6d7466',1);
+      for(const [z,h] of [[8,70],[83,150]]) {
+        plane([[f.x+5,front+1,z],[f.x+f.w-5,front+1,z],[f.x+f.w-5,front+1,z+h],[f.x+5,front+1,z+h]],'#d6d7cd','#919686',.65);
+        roomLine([[f.x+f.w/2,front+2,z+3],[f.x+f.w/2,front+2,z+h-3]],'#8c9282',.8,.8);
+        for(const x of [f.x+f.w/2-10,f.x+f.w/2+10]) roomLine([[x,front+3,z+h*.3],[x,front+3,z+h*.75]],'#727b6d',2.2,.9);
+      }
+      // Sink shifted to the right-hand rear counter, beside the wall-aligned fridge.
+      for(const x of [639,696]) {
+        plane([[x,53,71],[x+50,53,71],[x+50,119,71],[x,119,71]],'#c4c7bc','#757d6e',.8);
+        plane([[x+5,60,70],[x+45,60,70],[x+45,112,70],[x+5,112,70]],'#9fa99f','#6e7c70',.6);
+        const drain=project(x+25,89,71);oval(ctx,drain.x,drain.y,3,2,{color:'#778177',weight:.5});
+      }
+      const tap=project(693,56,72);
+      ctx.save();ctx.strokeStyle='#9e895d';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(tap.x,tap.y);ctx.bezierCurveTo(tap.x-14,tap.y-42,tap.x+15,tap.y-44,tap.x+13,tap.y-16);ctx.stroke();ctx.restore();
+      const olive=project(956,574); plant(olive.x-3,olive.y-4,1.8);
+      plane([[0,600,0],[960,600,0],[960,600,-9],[0,600,-9]],'#cabca3','#8e826c',.8);
+      roomLine([[0,600,165],[0,0,165],[960,0,165],[960,600,165]],'#5e5c50',1,.8);
+      ctx.save();
+      for(let i=0;i<11000;i++) {ctx.globalAlpha=.025+rnd(i+43)*.025;ctx.fillStyle=i%3?'#7e735e':'#fffdf1';ctx.fillRect(rnd(i*1.7)*WIDTH,rnd(i*2.3+5)*HEIGHT,.5+rnd(i)*1.2,.5+rnd(i+3));}
       ctx.restore();
-      blob(ctx, 48, 676, 150, 26, { color: P.sageDeep, rad: 2, amp: 0.3, weight: 0.8 });
-      label(ctx, '營業中・歡迎光臨', 123, 689, 13, '#f6f1e4');
-      plant(860, 676, 0.9);
-      label(ctx, '小小廚房，大大鍋氣。', 500, 698, 13, '#6a6458', 'center', 500);
+      label(ctx,'手 作 料 理  ·  慢 慢 練 成 好 手 藝',580,875,11,'#938a76','center',400);
     }
+    let roomCache = null;
+    function scene(game) {
+      // The architectural watercolor is static; cache it instead of repainting every board each frame.
+      const doc = ctx.canvas?.ownerDocument;
+      if (!roomCache && doc?.createElement) {
+        const canvas = doc.createElement('canvas'); canvas.width=WIDTH; canvas.height=HEIGHT;
+        const cached = canvas.getContext('2d');
+        if (cached) { const original=ctx; ctx=cached; try { room(); roomCache=canvas; } finally { ctx=original; } }
+      }
+      if (roomCache) ctx.drawImage(roomCache,0,0); else room();
+
+    }
+
     function drawChef(player, game, chopping, active) {
       const moving = active && state.walking;
       const bob = moving ? Math.sin(player.walk) * 1.5 : Math.sin(state.clock * 2) * 0.5;
@@ -907,37 +1022,32 @@
     function drawEffects() {
       for (const fx of state.effects) {
         const p = 1 - fx.remaining / fx.duration;
-        if (fx.kind === 'bubble') {
-          const shown = fx.duration - fx.remaining - fx.delay;
-          if (shown < 0) continue;
-          ctx.save(); ctx.globalAlpha = Math.min(1, shown * 6, fx.remaining * 3);
-          bubble(fx.text, 1077, 220 + (fx.table - 1) * 158 - 78 - Math.min(1, shown * 6) * 4, fx.urgent);
-          ctx.restore(); continue;
-        }
+        const anchor = project(fx.x || 0, fx.y || 0, fx.height ?? 70);
+        if (fx.kind === 'bubble') continue;
         ctx.save(); ctx.globalAlpha = Math.min(1, (1 - p) * 2);
         if (fx.kind === 'flame') {
           for (let i = 0; i < 8; i++) {
             const angle = -Math.PI / 2 + (i - 3.5) * 0.3, reach = p * (32 + (i % 3) * 8);
-            const x = OFFSET.x + fx.x + Math.cos(angle) * reach, y = OFFSET.y + fx.y - 8 + Math.sin(angle) * reach;
+            const x = anchor.x + Math.cos(angle) * reach, y = anchor.y - 12 - 8 + Math.sin(angle) * reach;
             oval(ctx, x, y, 4 * (1 - p) + 1.5, 7 * (1 - p) + 1.5, { color: i % 2 ? '#f0a04a' : '#f8e2a8', weight: 0.4, amp: 0.2, bleedAlpha: 0.15 });
           }
         } else if (fx.kind === 'smoke') {
-          for (let i = 0; i < 4; i++) oval(ctx, OFFSET.x + fx.x + (i - 1.5) * 10 + Math.sin(p * 5 + i) * 4, OFFSET.y + fx.y - 18 - p * (36 + i * 6), 8 + p * 10, 6 + p * 7, { color: 'rgba(70,74,66,0.35)', weight: 0.4, amp: 0.4, inkColor: '#5c6058' });
+          for (let i = 0; i < 4; i++) oval(ctx, anchor.x + (i - 1.5) * 10 + Math.sin(p * 5 + i) * 4, anchor.y - 12 - 18 - p * (36 + i * 6), 8 + p * 10, 6 + p * 7, { color: 'rgba(70,74,66,0.35)', weight: 0.4, amp: 0.4, inkColor: '#5c6058' });
         } else if (fx.kind === 'float') {
           ctx.font = `700 18px ${FONT}`; ctx.lineWidth = 3; ctx.strokeStyle = '#f6f1e6';
           ctx.lineJoin = 'round'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          const x = OFFSET.x + fx.x, y = OFFSET.y + fx.y - 28 - p * 34;
+          const x = anchor.x, y = anchor.y - 12 - 28 - p * 34;
           ctx.strokeText(fx.text, x, y); ctx.fillStyle = fx.color; ctx.fillText(fx.text, x, y);
         } else if (fx.kind === 'delivery') {
-          const startX = OFFSET.x + 14 * 60 + 30, startY = OFFSET.y + 6 * 60 + 30;
-          const endY = 220 + (fx.table - 1) * 158;
-          const dx = startX + (1077 - startX) * p, dy = startY + (endY - startY) * p - Math.sin(p * Math.PI) * 32;
-          if (ITEMS[fx.recipe]?.kind === 'juice') item(fx.recipe, dx, dy, 0.8);
-          else dish(fx.recipe, dx, dy, 0.8);
+          const start = project(fx.x, fx.y, fx.height ?? 70);
+          ctx.globalAlpha *= 1-p;
+          const dx=start.x, dy=start.y-p*30;
+          if (ITEMS[fx.recipe]?.kind === 'juice') item(fx.recipe,dx,dy,.8);
+          else dish(fx.recipe,dx,dy,.8);
         } else {
           for (let i = 0; i < 6; i++) {
             const angle = i * Math.PI * 2 / 6;
-            oval(ctx, OFFSET.x + fx.x + Math.cos(angle) * p * 34, OFFSET.y + fx.y + Math.sin(angle) * p * 18 - p * 12, 1.6, 1.6, { color: fx.color, weight: 0, amp: 0.1, bleed: false });
+            oval(ctx, anchor.x + Math.cos(angle) * p * 34, anchor.y - 12 + Math.sin(angle) * p * 18 - p * 12, 1.6, 1.6, { color: fx.color, weight: 0, amp: 0.1, bleed: false });
           }
         }
         ctx.restore();
@@ -985,17 +1095,17 @@
     }
     function action(station, game, before) {
       if (!station) return;
-      const x = station.x * 60 + 30, y = station.y * 60 + 30;
+      const x = station.x * 60 + 30, y = station.y * 60 + 30, height = stationElevation(station);
       if (game.flips > before.flips) {
         state.tosses[station.id] = .65; state.gesture = { remaining: .65, duration: .65 };
-        state.effects.push({ kind: 'flame', x, y, remaining: .55, duration: .55 }, { kind: 'float', text: '翻炒漂亮！', color: '#c4a15a', x, y: y - 20, remaining: .9, duration: .9 });
+        state.effects.push({ kind: 'flame', height, x, y, remaining: .55, duration: .55 }, { kind: 'float', height, text: '翻炒漂亮！', color: '#c4a15a', x, y: y - 20, remaining: .9, duration: .9 });
         shake(3, .2);
       }
-      if (game.held?.id !== before.held) { state.gesture = { remaining: .35, duration: .35 }; state.effects.push({ kind: 'spark', x, y: y - 12, color: '#e2c27a', remaining: .4, duration: .4 }); }
+      if (game.held?.id !== before.held) { state.gesture = { remaining: .35, duration: .35 }; state.effects.push({ kind: 'spark', height, x, y: y - 12, color: '#e2c27a', remaining: .4, duration: .4 }); }
       if (game.served > before.served && before.table) {
-        state.effects.push({ kind: 'delivery', table: before.table, recipe: before.recipe, remaining: .8, duration: .8 });
+        state.effects.push({ kind: 'delivery', height, x, y, table: before.table, recipe: before.recipe, remaining: .8, duration: .8 });
         state.tables[before.table] = { recipe: before.recipe, remaining: 9, arrivesAt: state.clock + .8 };
-        if (game.revenue > before.revenue) state.effects.push({ kind: 'float', text: `+$${game.revenue - before.revenue}`, color: '#a85c48', x, y, remaining: 1.1, duration: 1.1 });
+        if (game.revenue > before.revenue) state.effects.push({ kind: 'float', height, text: `+$${game.revenue - before.revenue}`, color: '#a85c48', x, y, remaining: 1.1, duration: 1.1 });
         say(before.table, REACTIONS[game.served % REACTIONS.length], 2.2, .8);
       }
       state.effects = state.effects.slice(-24);
@@ -1008,14 +1118,25 @@
       const active = running && !ended && !game.paused;
       const chopping = active && keys.has('f') && target?.type === 'board' && !game.held && target.item && ITEMS[target.item.id].processed ? target.id : null;
       state.walking = active && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].some(k => keys.has(k));
-      ctx.save(); ctx.translate(OFFSET.x, OFFSET.y);
-      const sorted = [...game.stations.map(s => ({ y: s.y * 60 + 30, s })), { y: player.y, chef: true }].sort((a, b) => a.y - b.y);
-      for (const obj of sorted) { if (obj.chef) drawChef(player, game, chopping, active); else drawStation(obj.s, game, target, chopping, active); }
-      ctx.restore(); drawEffects(); paperGrain(ctx); ctx.restore();
+      const sorted = [...getInteractiveStations(game.stations).map(s=>({y:s.y*60+30,s})),{y:player.y,chef:true},
+        {y:ROOM_LAYOUT.island.y+5,island:true},...ROOM_LAYOUT.stools.map(r=>({y:r.y+18,stool:r}))].sort((a,b)=>a.y-b.y);
+      for(const obj of sorted) {
+        if(obj.island) { island(); continue; }
+        if(obj.stool) {const r=obj.stool,p=project(r.x+r.w/2,r.y+18);ctx.save();ctx.translate(p.x,p.y-53*p.scale);ctx.scale(p.scale,p.scale);stool(0,0);ctx.restore();continue;}
+        const pos=obj.chef?player:at(obj.s);
+        const builtIn=!obj.chef&&!['trash','serve'].includes(obj.s.type);
+        const height=obj.chef?0:stationElevation(obj.s);
+        const p=project(pos.x,pos.y,height), scale=p.scale*(obj.chef?2:1.2);
+        ctx.save();ctx.translate(p.x,p.y-(obj.chef?22*scale:0));ctx.scale(scale,scale);ctx.translate(-pos.x,-pos.y);
+        if(obj.chef) drawChef(player,game,chopping,active);
+        else drawStation({...obj.s,builtIn},game,target,chopping,active);
+        ctx.restore();
+      }
+      drawEffects(); paperGrain(ctx); ctx.restore();
     }
     return { draw, update, reset, snapshot, action, observe, state };
   }
-  const api = { createRenderer, WIDTH, HEIGHT, OFFSET };
+  const api = { createRenderer, WIDTH, HEIGHT, OFFSET, project };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HotStirFryArt = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
