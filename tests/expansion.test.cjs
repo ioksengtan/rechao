@@ -55,6 +55,7 @@ test('levels restrict supplies, menus, order limits and provide all recipes fair
   for (const level of LEVELS) {
     const g = new Kitchen(() => .5, level.id);
     assert.equal(Object.keys(g.woks).length, level.woks);
+    if (level.home) { g.addOrder(); assert.equal(g.orders.length, 0); assert.deepEqual(['board', 'wok', 'serve'].filter(type => !g.stations.some(s => s.type === type)), []); continue; }
     if (level.mode === 'training') { g.addOrder(); assert.equal(g.orders.length, 0); assert.ok(!g.stations.some(s => s.type === 'wok' || s.type === 'plates')); continue; }
     assert.deepEqual(g.stations.filter(s=>s.type==='supply').map(s=>s.id),getStations(LEVELS[0]).filter(s=>s.type==='supply').map(s=>s.id));
     const recipes = new Set();

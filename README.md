@@ -1,5 +1,10 @@
 # rechao — 來我家簡單吃
 
+## v0.17 第一個可玩版本：煮一桌給室友
+
+選關畫面新增「來我家吃」分類。到冰箱選一道菜，依提示走到砧板、備料檯、炒爐，按 E 進入步驟特寫（切、攪拌、看火候），做好後端到餐桌，最後按 F 開飯。不限時；上桌的菜會慢慢變涼，所以煮的順序有差。
+規則在 `home.js`，特寫小遊戲在 `closeup.js`，兩者都不碰 DOM。目前食物與室友還沒有圖片，特寫是簡單的橫條畫面。熱炒營業與課程都保留。
+
 ## v0.16 改名
 
 遊戲顯示名稱由「熱炒開店啦！」改為「來我家簡單吃」。頁面標題、遊戲內標題、開始畫面與分享用文字一併更新。儲存庫名稱、網址、套件名稱與存檔鍵沒有改，已經遊玩過的進度仍可讀取。
@@ -124,7 +129,7 @@
 
 A 2D single-player cooking game inspired by Taiwan’s lively stir-fry restaurants. Prep ingredients, fire up the wok, and serve hungry customers through the dinner rush.
 
-Current version: 0.16.0
+Current version: 0.17.0
 
 社群推廣用的繁體中文貼文、更新公告與短影片字幕，見 [社群文案](docs/social-copy.zh-TW.md)。
 

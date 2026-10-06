@@ -111,6 +111,17 @@
   }
   // Keep the old lesson ID for existing saves; it is no longer in the course menu.
   LEVELS.find(l=>l.id==='sauce-school').course='archived';
+  // Home dinner: the kitchen supplies the room and movement; home.js owns the rules.
+  LEVELS.push(lesson({
+    id: 'home-dinner', course: 'home', home: true, woks: 1, name: '煮一桌給室友', subtitle: '三道家常菜，一口爐', description: '室友：今晚在家吃好不好？我想喝湯，不太敢吃辣。',
+    stations: ['board', 'counter', 'wok', 'serve'], goals: [], goalLine: '目標：煮好三道菜，全部上桌後開飯',
+    card: '不限時 · 三道家常菜', timing: '不限時 · 一口爐，一次煮一道 · 上桌的菜會慢慢變涼',
+    toast: '到冰箱按 E，選今晚的第一道菜。',
+    steps: '① 到冰箱按 E，選一道菜。<br>② 照提示走到砧板（切）、備料檯（攪拌）、炒爐（看火候），按 E 進特寫。<br>③ 做好後端到餐桌按 E 上桌。<br>④ 菜都上桌了，在餐桌按 F 開飯。',
+    tip: '上桌的菜會慢慢變涼：青菜涼得最快，湯最慢。先想好順序再開始。', stepLabel: '4 個步驟',
+    phaseLabel: '今晚的晚餐', phaseNote: '不趕時間。容易涼的菜留到最後煮。', ordersTitle: '今晚的菜', ordersSubtitle: '一道一道煮，全部上桌再開飯。',
+    resultTitle: '晚餐結束', resultMessage: ''
+  }));
   const sauceMixLines = (level,bowl) => Object.entries(SAUCE_RECIPES[level.sauceRecipe].parts).map(([id,n])=>ITEMS[id].name+' '+(bowl.mix[id]||0)+' / '+n+' 份');
   const sauceMixReady = (level,bowl) => Object.entries(SAUCE_RECIPES[level.sauceRecipe].parts).every(([id,n])=>bowl.mix[id]===n) && Object.keys(bowl.mix).every(id=>id in SAUCE_RECIPES[level.sauceRecipe].parts);
 
@@ -243,7 +254,7 @@
     if (level.mode === 'training') return STATIONS.filter(s => s.type === 'supply' || level.stations.includes(s.id) || s.type === 'counter' && s.id !== 'counter').map(s => ({
       ...s,
       ...(s.type === 'sauceMix' ? {mix:{}} : {}),
-      name: s.id === 'serve' ? '驗收檯' : level.measure === 'sauce' && s.id === 'counter' ? '量杯區' : s.name,
+      name: s.id === 'serve' ? (level.home ? '餐桌' : '驗收檯') : level.measure === 'sauce' && s.id === 'counter' ? '量杯區' : s.name,
       item: null, progress: 0,
       ...(s.type === 'juice' ? (level.measure === 'juice' ? { ingredients: [], mix: emptyJuiceMix(), pours: [] } : { ingredients: [] }) : {}),
       ...(level.measure === 'sauce' && s.id === 'counter' ? { spoons: 0, sauceId: null } : {})
@@ -596,7 +607,7 @@
     }
     finish() { if (this.phase === 'ended') return; this.expired += this.orders.length; this.orders = []; this.phase = 'ended'; this.time = 0; }
   }
-  const VERSION = '0.16.0';
+  const VERSION = '0.17.0';
   const api = { getInteractiveStations, SAUCE_RECIPES, sauceMixLines, sauceMixReady, COUNTER_CAPACITY, canStack, VERSION, Kitchen, ITEMS, RECIPES, DRINKS, JUICE_RECIPES, TRAINING_JUICE, SAUCE_SPOONS, SAUCE_CC, SYRUP_STEP_CC, SYRUP_TOLERANCE_CC, menuOffer, ROOM_LAYOUT, STATIONS, LEVELS, getStations, starCount, canAdd, recipeFor, portionsFor, cookDuration, chopDuration, MIX_TIME, juiceRecipe, measuredJuiceMatch, juiceOvershot, juiceMeasureLines, juiceTargetText, sauceMeasureLine, CHEF_STATS, getChefModifiers, flipWindowText };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HotStirFry = api;

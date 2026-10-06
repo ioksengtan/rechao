@@ -9,6 +9,8 @@ const progress = require('../progress.js');
 const career = require('../career.js');
 const audio = require('../audio.js');
 const art = require('../art.js');
+const home = require('../home.js');
+const closeup = require('../closeup.js');
 
 function classListFor(classes) {
   return {
@@ -70,6 +72,8 @@ function runtime(options = {}, extra = {}) {
     HotStirFryCareer: career,
     HotStirFryAudio: audio,
     HotStirFryArt: art,
+    HotStirFryHome: home,
+    HotStirFryCloseup: closeup,
   };
   scope.window = scope;
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../game.js'), 'utf8'), scope, { filename: 'game.js' });
