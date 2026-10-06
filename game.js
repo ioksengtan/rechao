@@ -3,6 +3,8 @@
   'use strict';
   const { getInteractiveStations, sauceMixLines, sauceMixReady, COUNTER_CAPACITY, canStack, Kitchen, ITEMS, LEVELS, starCount, portionsFor, cookDuration, flipWindowText, menuOffer, MIX_TIME, SAUCE_SPOONS, TRAINING_JUICE, juiceMeasureLines, sauceMeasureLine, measuredJuiceMatch, juiceOvershot, juiceTargetText } = window.HotStirFry;
   const { createPlayer, movePlayer } = window.HotStirFryMovement;
+  const { Dinner, DISHES, INGREDIENTS, warmthLabel } = window.HotStirFryHome;
+  const { Closeup } = window.HotStirFryCloseup;
   const $ = id => document.getElementById(id);
   const canvas = $('game'), ctx = canvas.getContext('2d');
   const game = new Kitchen();
@@ -19,7 +21,7 @@
   try { storage = localStorage; } catch (_) { /* Scores remain session-only when browser storage is blocked. */ }
   const progress = new window.HotStirFryProgress.Progress(storage);
   let selectedLevel = 'prep-school', selectedCourse = 'prep';
-  const courses = [['prep','備料'],['spices','辛香料'],['sauces','調醬'],['juice','果汁'],['service','熱炒營業']];
+  const courses = [['home','來我家吃'],['prep','備料'],['spices','辛香料'],['sauces','調醬'],['juice','果汁'],['service','熱炒營業']];
   const courseFor = level => level.course;
   const goalText = level => level.goals.map(g => {
     const item = ITEMS[g.id];
@@ -198,7 +200,7 @@
     const serviceLabel = Number.isInteger(minutes * 2) ? `${minutes} 分鐘` : `${Math.floor(minutes)} 分 ${level.serviceTime % 60} 秒`;
     $('level-timing').textContent = `${level.prepTime} 秒備料 · ${serviceLabel}營業 · 最多 ${level.closingTime} 秒收尾 · ${inputLabel}`;
     $('start').textContent = `開始「${level.name}」 →`;
-    if (level.mode === 'training') { $('level-goals').textContent = '目標：' + goalText(level); $('level-timing').textContent = level.timing; }
+    if (level.mode === 'training') { $('level-goals').textContent = level.goalLine || '目標：' + goalText(level); $('level-timing').textContent = level.timing; }
 
   }
   function renderMenu() {
@@ -235,7 +237,7 @@
     closeSupply();
     selectedCourse = courseFor(game.level);
 
-    running = false; ended = false; clearInput(); target = null; game.reset(selectedLevel, null); art.reset(); careerOpen = false; $('career').classList.add('hidden');
+    running = false; ended = false; clearInput(); target = null; game.reset(selectedLevel, null); art.reset(); resetHome(); careerOpen = false; $('career').classList.add('hidden');
     player = createPlayer();
     $('paused').classList.add('hidden'); $('results').classList.add('hidden'); $('welcome').classList.remove('hidden'); $('overlay').classList.remove('hidden'); updatePauseLabel(); syncPlayChrome();
     $('toast').textContent = ''; $('toast').classList.remove('show'); toastUntil = 0;
@@ -256,13 +258,14 @@
     closeSupply();
     session = next; selectedLevel = next.level; selectedCourse = courseFor(LEVELS.find(l => l.id === next.level));
     sfx.resume();
-    game.reset(selectedLevel, session.chef); art.reset(); player = createPlayer(); clearInput(); running = true; ended = false; target = null;
+    game.reset(selectedLevel, session.chef); art.reset(); resetHome(); player = createPlayer(); clearInput(); running = true; ended = false; target = null;
     $('overlay').classList.add('hidden'); updatePauseLabel(); syncPlayChrome(); last = performance.now();
     canvas.focus({ preventScroll: true }); renderMenu();
-    showToast(game.level.mode === 'training' ? '先到層架、轉盤或冰箱按 E，再選擇食材。'+game.level.toast : game.level.woks === 1 ? '先到開放層架按 E，選青菜，再到砧板備料。' : `${game.level.name}：兩口鍋各自計時，先備好料再開火。`, 'done'); updateHUD();
+    showToast(game.level.home ? game.level.toast : game.level.mode === 'training' ? '先到層架、轉盤或冰箱按 E，再選擇食材。'+game.level.toast : game.level.woks === 1 ? '先到開放層架按 E，選青菜，再到砧板備料。' : `${game.level.name}：兩口鍋各自計時，先備好料再開火。`, 'done'); updateHUD();
   }
   function pause(force) {
     if(supplyOpen)closeSupply();
+    closeDishes();
     if (!running || ended) return;
     game.paused = typeof force === 'boolean' ? force : !game.paused; clearInput();
     $('overlay').classList.toggle('hidden', !game.paused); $('welcome').classList.add('hidden'); $('results').classList.add('hidden'); $('paused').classList.remove('hidden');
@@ -329,6 +332,9 @@
   $('supply-close').onclick=closeSupply;
   $('supply-picker').onfocusin=event=>{if(!supplyOpen)return;const choices=supplyChoices(),id=event.target.getAttribute?.('data-supply');if(id)supplyIndex=choices.indexOf(id);else if(event.target.id==='supply-close')supplyIndex=choices.length;};
   function pressAction(key) {
+    if (closeup) { if (key === 'e' || key === 'f') closeupPress(); return; }
+    if (dishOpen) return;
+    if (dinner) { if (running && !game.paused && !ended && target && (key === 'e' || key === 'f')) homeAction(key); return; }
     if (supplyOpen || !running || game.paused || ended || !target || (key !== 'e' && key !== 'f')) return;
     if(target.type==='supplyGroup'){if(key==='e')openSupply(target);return;}
     const before = art.snapshot(game);
@@ -442,6 +448,20 @@
       }else if(['enter','e',' '].includes(key)){if(supplyIndex<n)chooseSupply(choices[supplyIndex]);else closeSupply();}
       return;
     }
+    if (closeup && !game.paused && key !== 'escape') {
+      if (['e', 'f', ' ', 'enter'].includes(key)) { e.preventDefault(); if (!e.repeat) closeupPress(); }
+      return;
+    }
+    if (dishOpen) {
+      const n = dishChoices.length;
+      if (['escape','tab','arrowup','arrowdown','arrowleft','arrowright','w','a','s','d','enter','e',' '].includes(key)) e.preventDefault();
+      if (e.repeat) return;
+      if (key === 'escape') closeDishes();
+      else if (['arrowup','arrowleft','w','a'].includes(key)) { dishIndex = (dishIndex - 1 + n) % n; renderDishes(); }
+      else if (['arrowdown','arrowright','s','d','tab'].includes(key)) { dishIndex = (dishIndex + 1) % n; renderDishes(); }
+      else if (['enter','e',' '].includes(key)) chooseDish(dishChoices[dishIndex]);
+      return;
+    }
     if (careerOpen) { if (key === 'escape' && !e.repeat) { e.preventDefault(); closeCareer(); } return; }
     if (originOpen) {
       if (['escape', 'enter', ' ', 'arrowright', 'arrowleft'].includes(key)) {
@@ -473,6 +493,7 @@
   function prompt() {
     if (!target || !running || ended) return '';
     const s = target;
+    if (dinner) return homePrompt(s);
     if(s.type==='supplyGroup') return 'E 打開'+s.name+' · 選擇食材';
     if(s.type==='sauceMix') return s.item ? 'E 拿起調好的醬' : game.held ? 'E 加入 1 份原料' : sauceMixReady(game.level,s) ? '按住 F 攪拌 2 秒' : '依配方加入原料 · 過量可到廚餘桶清空';
     if (s.type === 'supply') {
@@ -516,6 +537,7 @@
     return w.flipped ? '翻炒完成，等待起鍋' : `F 翻炒 · 在進度 ${flipWindowText(game.mods)} 時操作`;
   }
   function heldText() {
+    if (dinner?.active) return '手上拿著：' + DISHES[dinner.active.id].name + (dinner.nextStep ? '的食材' : '（做好了）');
     if (!game.held) return '雙手空空';
     const item = ITEMS[game.held.id];
     if (game.held.bottle) return '手上拿著：' + item.name + '（瓶子）';
@@ -574,6 +596,121 @@
         $('phase-note').textContent = `${session.quiz.par[1]} 秒內完成 3 星 · 限時 ${session.quiz.limit} 秒`;
       }
     }
+    if (dinner) homeHUD();
+  }
+  // ---- Home dinner: Dinner (home.js) owns the rules, Closeup (closeup.js) the step mini games. ----
+  const HOME_PLACE = { cut: ['board', '砧板'], stir: ['counter', '備料檯'], timing: ['wok', '炒爐'] };
+  const CLOSEUP_HOLD = 1.1, CLOSEUP_SKIP = .35;
+  let dinner = null, closeup = null, closeupStep = null, closeupHold = 0, dishOpen = false, dishIndex = 0, dishChoices = [];
+  const foodList = amounts => Object.entries(amounts).filter(([, n]) => n > 0).map(([id, n]) => `${INGREDIENTS[id]} ${n}`).join('、');
+  function resetHome() {
+    dinner = game.level.home ? new Dinner() : null; closeup = null; closeupStep = null; dishOpen = false;
+    $('closeup').classList.add('hidden'); $('dish-picker').classList.add('hidden');
+  }
+  // Each dish, plus its "more tomato" and "add chili" variants when the fridge allows them.
+  function buildDishChoices() {
+    const rows = [];
+    for (const id of dinner.remaining) {
+      const dish = DISHES[id];
+      rows.push({ id, label: dish.name, amounts: {}, options: [] });
+      if (dish.max && dinner.plan(id, dish.max).extra.length) rows.push({ id, label: `${dish.name}（多放${Object.keys(dish.max).map(k => INGREDIENTS[k]).join('、')}）`, amounts: dish.max, options: [] });
+      for (const item of Object.keys(dish.optional || {})) if (dinner.fridge[item] > 0) rows.push({ id, label: `${dish.name}（加${INGREDIENTS[item]}）`, amounts: {}, options: [item] });
+    }
+    return rows.map(row => ({ ...row, plan: dinner.plan(row.id, row.amounts, row.options) }));
+  }
+  function renderDishes() {
+    $('dish-note').textContent = `冰箱裡有：${foodList(dinner.fridge) || '空空的'}。一口爐，一次煮一道。`;
+    $('dish-options').innerHTML = dishChoices.map((row, i) => `<button data-choice="${i}" class="${i === dishIndex ? 'selected' : ''}" aria-pressed="${i === dishIndex}"><strong>${row.label}</strong><small>用掉：${foodList(row.plan.used) || '沒有食材'} · ${DISHES[row.id].steps.map(s => s.label).join(' → ')}</small>${row.plan.short.length ? `<small class="short">食材不夠：少了${row.plan.short.map(k => INGREDIENTS[k]).join('、')}</small>` : ''}</button>`).join('');
+  }
+  function openDishes() { dishChoices = buildDishChoices(); dishIndex = 0; dishOpen = true; clearInput(); renderDishes(); $('dish-picker').classList.remove('hidden'); }
+  function closeDishes() { if (!dishOpen) return; dishOpen = false; $('dish-picker').classList.add('hidden'); clearInput(); last = performance.now(); canvas.focus({ preventScroll: true }); }
+  function chooseDish(row) {
+    if (!row || !dinner.begin(row.id, row.amounts, row.options)) return;
+    closeDishes();
+    const step = dinner.nextStep;
+    showToast(`拿好${DISHES[row.id].name}的食材了。先到${HOME_PLACE[step.kind][1]}：${step.label}。`, 'tap'); updateHUD();
+  }
+  $('dish-options').onclick = event => { const button = event.target.closest('[data-choice]'); if (button) chooseDish(dishChoices[Number(button.dataset.choice)]); };
+  $('dish-close').onclick = closeDishes;
+  function renderCloseup() {
+    const v = closeup.view(), pct = n => (n * 100).toFixed(2) + '%';
+    const track = v.kind === 'cut'
+      ? v.guides.map(g => `<i class="cu-guide" style="left:${pct(g)}"></i>`).join('') + v.cuts.map(c => `<i class="cu-cut" style="left:${pct(c)}"></i>`).join('') + (v.done ? '' : `<i class="cu-knife" style="left:${pct(v.marker)}"></i>`)
+      : `<i class="cu-zone" style="left:${pct(v.low)};width:${pct(v.high - v.low)}"></i><i class="cu-fill" style="width:${pct(v.fill)}"></i>`;
+    $('closeup-stage').innerHTML = `<div class="cu-track">${track}</div>` + (v.done ? `<p class="cu-score">${v.score} 分</p>` : '');
+    $('closeup-hint').textContent = v.hint;
+  }
+  function openCloseup(step) {
+    closeup = new Closeup(step.kind, step.label); closeupStep = step; closeupHold = 0; clearInput();
+    $('closeup-dish').textContent = DISHES[dinner.active.id].name; $('closeup-title').textContent = step.label;
+    renderCloseup(); $('closeup').classList.remove('hidden'); $('closeup-action').focus();
+  }
+  function closeCloseup() {
+    const next = dinner.scoreStep(closeupStep.id, closeup.score), name = DISHES[dinner.active.id].name;
+    closeup = null; closeupStep = null; $('closeup').classList.add('hidden'); clearInput(); last = performance.now(); canvas.focus({ preventScroll: true });
+    showToast(next === 'ready' ? `${name}做好了！趁熱端到餐桌按 E。` : `下一步到${HOME_PLACE[next.kind][1]}：${next.label}。`, 'done'); updateHUD();
+  }
+  function closeupPress() {
+    if (!closeup || game.paused) return;
+    if (closeup.done) { if (closeupHold >= CLOSEUP_SKIP) closeCloseup(); return; }
+    if (closeup.press()) sound(closeup.done ? 'done' : 'chop');
+    renderCloseup();
+  }
+  function stepCloseup(dt) {
+    closeup.update(dt);
+    if (closeup.done) { closeupHold += dt; if (closeupHold >= CLOSEUP_HOLD) return closeCloseup(); }
+    renderCloseup();
+  }
+  $('closeup-action').onclick = closeupPress;
+  function homePrompt(s) {
+    const step = dinner.nextStep, active = dinner.active;
+    if (s.id === 'fridge') return active ? '先把手上這道菜做完' : dinner.remaining.length ? 'E 打開冰箱 · 選一道菜' : '菜都煮好了 · 到餐桌按 F 開飯';
+    if (s.type === 'serve') return active ? (step ? `還沒做完：${step.label}` : `E 把${DISHES[active.id].name}端上桌`) : dinner.table.length ? (dinner.remaining.length ? `F 開飯（還有 ${dinner.remaining.length} 道沒煮）` : 'F 開飯！') : '餐桌 · 煮好的菜端到這裡';
+    if (step && HOME_PLACE[step.kind][0] === s.type) return `E ${step.label}`;
+    if (s.type === 'supplyGroup') return '今晚的食材都在冰箱';
+    return step ? `下一步在${HOME_PLACE[step.kind][1]}：${step.label}` : active ? '做好了 · 端到餐桌按 E' : '先到冰箱選一道菜';
+  }
+  function homeAction(key) {
+    const s = target, step = dinner.nextStep, active = dinner.active;
+    if (s.type === 'serve' && key === 'f') {
+      if (active || !dinner.table.length) showToast(active ? '手上這道還沒上桌。' : '桌上還沒有菜。', 'bad');
+      else return finishHome(dinner.serve());
+    } else if (key !== 'e') return;
+    else if (s.id === 'fridge') {
+      if (active) showToast('先把手上這道菜做完。', 'bad'); else if (dinner.remaining.length) return openDishes(); else showToast('菜都煮好了，到餐桌按 F 開飯。', 'done');
+    } else if (s.type === 'serve') {
+      if (active && !step) { const dish = dinner.plate(); showToast(`${DISHES[dish.id].name}上桌了，熱騰騰。`, 'serve'); }
+      else showToast(active ? `還沒做完：${step.label}。` : dinner.table.length ? '按 F 開飯，或回冰箱煮下一道。' : '桌上還沒有菜。', 'bad');
+    } else if (step && HOME_PLACE[step.kind][0] === s.type) return openCloseup(step);
+    else showToast(homePrompt(s) + '。', 'bad');
+    updateHUD();
+  }
+  function homeHUD() {
+    const step = dinner.nextStep, active = dinner.active;
+    $('served-title').textContent = '已上桌'; $('served').innerHTML = `${dinner.table.length} <span class="unit">道</span>`;
+    $('order-count').textContent = `${dinner.table.length} / ${dinner.menu.length} 道`;
+    $('orders').innerHTML = dinner.menu.map(id => {
+      const dish = DISHES[id], plated = dinner.table.find(d => d.id === id);
+      if (plated) { const label = warmthLabel(plated.warmth); return `<article class="order ${label === '涼了' ? 'urgent' : ''}"><h3>${dish.name}</h3><p>已上桌 · ${label}</p><span class="warmth"><b style="width:${Math.round(plated.warmth * 100)}%"></b></span></article>`; }
+      if (active?.id === id) return `<article class="order"><h3>${dish.name}</h3><p>製作中 · ${step ? `下一步：${step.label}（${HOME_PLACE[step.kind][1]}）` : '做好了，端上桌'}</p></article>`;
+      return `<article class="order"><h3>${dish.name}</h3><p>還沒煮 · 需要 ${foodList(dish.needs)}</p></article>`;
+    }).join('');
+    $('wok-status').innerHTML = `<div class="wok-chip measure"><b>冰箱</b><span>${foodList(dinner.fridge) || '空了'}</span></div><div class="wok-chip measure"><b>現在</b><span>${active ? (step ? `${DISHES[active.id].name} · ${step.label}（${HOME_PLACE[step.kind][1]}）` : `${DISHES[active.id].name}做好了 · 端到餐桌`) : dinner.remaining.length ? '到冰箱選一道菜' : '到餐桌按 F 開飯'}</span></div>`;
+  }
+  function finishHome(result) {
+    ended = true; clearInput(); updatePauseLabel(); syncPlayChrome();
+    const record = progress.record(game.level.id, result.total, result.stars), friend = dinner.friend.name;
+    $('stars').textContent = '★'.repeat(result.stars) + '☆'.repeat(3 - result.stars);
+    $('result-level').textContent = `${game.level.name} · ${result.rating}`;
+    $('result-message').textContent = `${friend}：${result.line}`;
+    $('result-stats').innerHTML = result.dishes.map(d => `<div><span>${d.name}${d.missing ? ' · 沒上桌' : ' · ' + d.warmth}</span><strong>${d.score} 分</strong></div>`).join('') + result.dishes.map(d => `<p>${friend}：${d.line}</p>`).join('');
+    $('best-record').textContent = `這一桌 ${result.total} 分 · 最高 ${record.revenue} 分 · 最佳 ${record.stars} 星 · 煮了 ${record.runs} 次`;
+    $('next-level').classList.add('hidden'); $('restart').classList.remove('hidden');
+    const now = new Date();
+    lastReport = ['rechao 本局數據', `版本：${HotStirFry.VERSION}`, `時間：${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`, `模式：來我家吃`, `關卡：${game.level.name}`,
+      `星數：${result.stars} / 3（${result.rating}，${result.total} 分）`, ...result.dishes.map(d => d.missing ? `${d.name}：沒上桌` : `${d.name}：${d.score} 分 · 手藝 ${d.craft} · ${d.warmth}`), `實際遊玩：${duration(result.seconds)}`].join('\n');
+    $('copy-status').textContent = ''; $('copy-fallback').value = ''; $('copy-fallback').classList.add('hidden');
+    $('welcome').classList.add('hidden'); $('paused').classList.add('hidden'); $('results').classList.remove('hidden'); $('overlay').classList.remove('hidden'); sound('serve'); updateHUD(); $('restart').focus();
   }
   // Plain-text run summary for playtesters to paste into a chat; no personal data.
   let lastReport = '';
@@ -666,8 +803,9 @@
   }
   function frame(now){
     const dt=Math.min((now-last)/1000,.25);last=now;
-    const active=running&&!game.paused&&!ended&&!supplyOpen;
-    if(active){move(dt);game.tick(dt,keys.has('f')&&target?target.id:null);drainEvents();art.observe(game);chopSound(dt);if(session.kind==='quiz'&&game.clock>=session.quiz.limit)game.finish();if(game.phase==='ended')finish();hudTimer+=dt;if(hudTimer>.15){updateHUD();hudTimer=0;}}
+    const active=running&&!game.paused&&!ended&&!supplyOpen&&!dishOpen;
+    if(active&&closeup)stepCloseup(dt);
+    else if(active){if(dinner)dinner.tick(dt);move(dt);game.tick(dt,keys.has('f')&&target?target.id:null);drainEvents();art.observe(game);chopSound(dt);if(session.kind==='quiz'&&game.clock>=session.quiz.limit)game.finish();if(game.phase==='ended')finish();hudTimer+=dt;if(hudTimer>.15){updateHUD();hudTimer=0;}}
     sfx.ambience(active?Object.values(game.woks).filter(w=>w.state==='cooking').length:0,active&&(game.phase==='service'||game.phase==='closing'));
     art.update(dt, !game.paused && !ended && !supplyOpen);
     if(now>toastUntil)$('toast').classList.remove('show');draw();requestAnimationFrame(frame);

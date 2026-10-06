@@ -30,7 +30,7 @@ test('lunch is a short greens-and-rice service night', () => {
   assert.deepEqual(opening.stars, [160, 450, 900]);
   assert.equal(LEVELS.find(l => l.id === 'rush').serviceTime, 180);
   assert.equal(LEVELS.find(l => l.id === 'friday').serviceTime, 180);
-  assert.deepEqual(LEVELS.filter(l => l.mode === 'training').map(l => l.id), ['prep-school', 'spice-school', 'sauce-school', 'juice-school', 'sweetChili-school', 'haishan-school', 'fiveFlavor-school']);
+  assert.deepEqual(LEVELS.filter(l => l.mode === 'training' && !l.home).map(l => l.id), ['prep-school', 'spice-school', 'sauce-school', 'juice-school', 'sweetChili-school', 'haishan-school', 'fiveFlavor-school']);
 });
 
 test('lunch star thresholds stay fair for a 90 second greens-and-rice service', () => {
@@ -138,7 +138,7 @@ test('lunch is listed under service without changing the other nights or lesson 
   assert.equal(ui.game.phase, 'prep');
   assert.ok(ui.game.time < 10 && ui.game.time > 9);
   const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
-  assert.match(readme, /Current version: 0\.16\.0/);
+  assert.match(readme, /Current version: 0\.17\.0/);
   assert.match(readme, /午休小局/);
   assert.match(readme, /\$80／\$200／\$450/);
 });
