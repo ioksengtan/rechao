@@ -29,6 +29,7 @@ function runtime(options = {}, extra = {}) {
   const nodes = {}, events = {};
   let frame, now = 0, game, player;
   const context2d = new Proxy({}, { get: (target, key) => target[key] || (() => {}), set: (target, key, value) => (target[key] = value, true) });
+  context2d.canvas = { ownerDocument: { createElement: () => ({ getContext: () => context2d }) } };
   const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
   for (const match of html.matchAll(/id="([^"]+)"/g)) {
     const classes = new Set();

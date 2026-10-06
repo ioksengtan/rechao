@@ -10,6 +10,7 @@ function context() {
     save() { depth++; }, restore() { depth--; assert.ok(depth >= 0, 'balanced canvas restore'); },
     ellipse(x,y,rx,ry) { [x,y,rx,ry].forEach(n=>assert.ok(Number.isFinite(n))); assert.ok(rx >= 0 && ry >= 0); primitives++; },
     roundRect(x,y,w,h) { [x,y,w,h].forEach(n=>assert.ok(Number.isFinite(n))); assert.ok(w >= 0 && h >= 0); primitives++; },
+    canvas: { ownerDocument: { createElement: () => ({ getContext: () => ctx }) } },
   }, { get(target, key) { return key in target ? target[key] : () => {}; } });
   return { ctx, check() { assert.equal(depth,0); assert.ok(primitives>0); } };
 }
@@ -47,4 +48,27 @@ test('successful flips and deliveries animate, invalid actions do not; pause fre
   assert.ok(renderer.state.effects.some(fx=>fx.kind==='delivery'));assert.equal(renderer.state.tables[3].recipe,'greens');
   renderer.draw(game,createPlayer(),serve,new Set(),true,false);renderer.update(10,true);assert.equal(renderer.state.effects.length,0);assert.equal(Object.keys(renderer.state.tables).length,0);
   renderer.reset();assert.equal(renderer.state.clock,0);assert.equal(renderer.state.gesture,null);c.check();
+});
+
+test('static layers are painted once and stamped each frame; no document falls back to repainting', () => {
+  const counter = () => {
+    let calls = 0, stamps = 0;
+    const ctx = new Proxy({ drawImage() { stamps++; } }, { get(t, k) { if (k in t) return t[k]; return () => { calls++; }; } });
+    return { ctx, get calls() { return calls; }, get stamps() { return stamps; } };
+  };
+  const game = new core.Kitchen(() => .5, 'friday'), player = createPlayer(), keys = new Set();
+  const cached = counter();
+  cached.ctx.canvas = { ownerDocument: { createElement: () => ({ getContext: () => cached.ctx }) } };
+  const withDoc = createRenderer(cached.ctx, core);
+  withDoc.draw(game, player, null, keys, true, false);
+  const first = cached.calls; let before = cached.calls;
+  withDoc.draw(game, player, null, keys, true, false);
+  const steady = cached.calls - before;
+  assert.deepEqual(Object.keys(withDoc.layers).sort(), ['grain', 'room']);
+  assert.equal(cached.stamps, 4, 'room and grain are stamped on both frames');
+  assert.ok(steady < first / 2, `a steady frame (${steady} calls) is far cheaper than the first (${first})`);
+  const bare = counter(), noDoc = createRenderer(bare.ctx, core);
+  noDoc.draw(game, player, null, keys, true, false); before = bare.calls;
+  noDoc.draw(game, player, null, keys, true, false);
+  assert.equal(bare.stamps, 0); assert.ok(bare.calls - before > steady * 2, 'without a document every frame repaints the room');
 });

@@ -937,16 +937,20 @@
       ctx.restore();
       label(ctx,'手 作 料 理  ·  慢 慢 練 成 好 手 藝',580,875,11,'#938a76','center',400);
     }
-    let roomCache = null;
-    function scene(game) {
-      // The architectural watercolor is static; cache it instead of repainting every board each frame.
+    // Static layers (the room, the paper grain) are painted once to an offscreen canvas and
+    // stamped each frame; without a document they repaint directly.
+    const layers = {};
+    function layer(name, paint) {
       const doc = ctx.canvas?.ownerDocument;
-      if (!roomCache && doc?.createElement) {
+      if (!layers[name] && doc?.createElement) {
         const canvas = doc.createElement('canvas'); canvas.width=WIDTH; canvas.height=HEIGHT;
         const cached = canvas.getContext('2d');
-        if (cached) { const original=ctx; ctx=cached; try { room(); roomCache=canvas; } finally { ctx=original; } }
+        if (cached) { const original=ctx; ctx=cached; try { paint(cached); layers[name]=canvas; } finally { ctx=original; } }
       }
-      if (roomCache) ctx.drawImage(roomCache,0,0); else room();
+      if (layers[name]) ctx.drawImage(layers[name],0,0); else paint(ctx);
+    }
+    function scene(game) {
+      layer('room', room);
 
     }
 
@@ -1132,9 +1136,9 @@
         else drawStation({...obj.s,builtIn},game,target,chopping,active);
         ctx.restore();
       }
-      drawEffects(); paperGrain(ctx); ctx.restore();
+      drawEffects(); layer('grain', paperGrain); ctx.restore();
     }
-    return { draw, update, reset, snapshot, action, observe, state };
+    return { draw, update, reset, snapshot, action, observe, state, layers };
   }
   const api = { createRenderer, WIDTH, HEIGHT, OFFSET, project };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

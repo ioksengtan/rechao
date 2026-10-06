@@ -7,7 +7,7 @@ const { createAudio, TYPES } = require('../audio.js');
 
 function context() {
   let depth = 0;
-  const ctx = new Proxy({ save() { depth++; }, restore() { depth--; assert.ok(depth >= 0); } }, { get: (t, k) => k in t ? t[k] : () => {} });
+  const ctx = new Proxy({ save() { depth++; }, restore() { depth--; assert.ok(depth >= 0); }, canvas: { ownerDocument: { createElement: () => ({ getContext: () => ctx }) } } }, { get: (t, k) => k in t ? t[k] : () => {} });
   return { ctx, balanced: () => assert.equal(depth, 0) };
 }
 const kinds = r => r.state.effects.map(fx => fx.kind);
